@@ -1,0 +1,11 @@
+Address,Price,Lot Size,Zoning,Bedrooms,Bathrooms,Square Feet,Year Built
+"1234 Oak Street, Austin, TX 78704",450000,8500,SF-3,3,2,1800,1985
+"5678 Elm Avenue, Austin, TX 78745",520000,12000,SF-4A,4,3,2200,1992
+"9012 Pine Road, Austin, TX 78702",380000,7200,SF-3,2,2,1500,1978
+"123 Main Street, Austin, TX 78701",750000,6000,SF-2,3,2,2100,2010
+"456 Congress Avenue, Austin, TX 78701",890000,5800,SF-2,4,3,2400,2015
+"789 Cedar Lane, Austin, TX 78703",425000,10500,SF-3,3,2,1650,1982
+"321 Maple Drive, Austin, TX 78746",580000,12000,SF-2,4,3.5,2800,1995
+"654 Willow Street, Austin, TX 78704",395000,8800,SF-4A,2,1.5,1200,1975
+"987 Birch Court, Austin, TX 78748",475000,9800,SF-3,3,2.5,1950,1988
+"147 Hickory Way, Austin, TX 78749",510000,11200,SF-2,4,3,2300,1990 

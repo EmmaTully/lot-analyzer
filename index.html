@@ -34,8 +34,8 @@
                         <div class="step">
                             <div class="step-number">1</div>
                             <div class="step-content">
-                                <h3>Enter Address</h3>
-                                <p>Search for any property in Austin, TX</p>
+                                <h3>Upload CSV Data</h3>
+                                <p>Upload property data from Zillow or Realtor.com</p>
                             </div>
                         </div>
                         <div class="step">
@@ -56,35 +56,42 @@
                 </div>
             </section>
 
-            <!-- Address Search Section -->
-            <section class="search-section">
+            <!-- CSV Upload Section -->
+            <section class="upload-section">
                 <div class="card">
-                    <h2><i class="fas fa-search"></i> Search Property by Address</h2>
-                    <p>Enter an Austin, TX address to analyze its lot splitting potential and investment viability.</p>
+                    <h2><i class="fas fa-upload"></i> Upload Property Data</h2>
+                    <p>Upload your CSV file with Austin property data from Zillow, Realtor.com, or other sources.</p>
                     
-                    <div class="search-area">
-                        <div class="search-input-group">
-                            <input type="text" id="addressInput" class="address-input" placeholder="Enter address (e.g., 123 Main St, Austin, TX 78701)" />
-                            <button class="btn-search" onclick="searchProperty()">
-                                <i class="fas fa-search"></i> Analyze Property
-                            </button>
+                    <div class="upload-area" id="uploadArea">
+                        <div class="upload-zone" id="uploadZone">
+                            <i class="fas fa-cloud-upload-alt"></i>
+                            <h3>Drag & Drop CSV File Here</h3>
+                            <p>or <button class="btn-browse" onclick="document.getElementById('csvFile').click()">Browse Files</button></p>
+                            <input type="file" id="csvFile" accept=".csv" style="display: none;">
                         </div>
-                        <div class="search-examples">
-                            <p>Try: <span class="example-link" onclick="fillExample('1234 Oak Street, Austin, TX 78704')">1234 Oak Street</span>, <span class="example-link" onclick="fillExample('123 Main Street, Austin, TX 78701')">123 Main Street</span>, or <span class="example-link" onclick="fillExample('456 Congress Avenue, Austin, TX 78701')">456 Congress Avenue</span></p>
+                        
+                        <div class="file-info" id="fileInfo" style="display: none;">
+                            <div class="file-details">
+                                <i class="fas fa-file-csv"></i>
+                                <div class="file-text">
+                                    <h4 id="fileName"></h4>
+                                    <p id="fileDetails"></p>
+                                </div>
+                                <button class="btn-remove" onclick="clearFile()">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
+                            <button class="btn-analyze" onclick="analyzeCSV()">
+                                <i class="fas fa-chart-line"></i> Analyze Properties
+                            </button>
                         </div>
                     </div>
                     
-                    <div class="property-info" id="propertyInfo" style="display: none;">
-                        <div class="property-details">
-                            <i class="fas fa-home"></i>
-                            <div class="property-text">
-                                <h4 id="propertyAddress"></h4>
-                                <p id="propertyDetails"></p>
-                            </div>
-                            <button class="btn-remove" onclick="clearProperty()">
-                                <i class="fas fa-times"></i>
-                            </button>
-                        </div>
+                    <div class="sample-download">
+                        <p><i class="fas fa-download"></i> Need sample data? 
+                            <a href="sample_austin_properties.csv" download>Download Sample CSV</a> 
+                            with 10 Austin properties
+                        </p>
                     </div>
                 </div>
             </section>

@@ -1,307 +1,218 @@
-// Global variables
-let currentProperty = null;
-let analysisResults = null;
-
-// Austin zoning data
+// Austin Zoning Rules
 const austinZoning = {
-    'SF-2': { minLotSize: 5750, frontSetback: 25, sideSetback: 5, maxHeight: 40 },
-    'SF-3': { minLotSize: 7000, frontSetback: 25, sideSetback: 7.5, maxHeight: 40 },
-    'SF-4A': { minLotSize: 8500, frontSetback: 25, sideSetback: 10, maxHeight: 40 },
-    'SF-5': { minLotSize: 12000, frontSetback: 25, sideSetback: 15, maxHeight: 40 },
-    'SF-6': { minLotSize: 1, frontSetback: 25, sideSetback: 20, maxHeight: 40 }
+    'SF-2': {
+        minLotSize: 5750,
+        frontSetback: 25,
+        sideSetback: 5,
+        maxHeight: 40
+    },
+    'SF-3': {
+        minLotSize: 7000,
+        frontSetback: 25,
+        sideSetback: 7.5,
+        maxHeight: 40
+    },
+    'SF-4A': {
+        minLotSize: 8500,
+        frontSetback: 25,
+        sideSetback: 10,
+        maxHeight: 40
+    },
+    'SF-5': {
+        minLotSize: 10000,
+        frontSetback: 25,
+        sideSetback: 12,
+        maxHeight: 40
+    },
+    'SF-6': {
+        minLotSize: 12500,
+        frontSetback: 25,
+        sideSetback: 15,
+        maxHeight: 40
+    }
 };
 
-// Property data service - expandable to real APIs
-class PropertyDataService {
-    constructor() {
-        // Sample database - in production, this would call real APIs
-        this.sampleProperties = {
-            '1234 oak street, austin, tx 78704': {
-                address: '1234 Oak Street, Austin, TX 78704',
-                price: 450000,
-                lotSize: 8500,
-                zoning: 'SF-3',
-                bedrooms: 3,
-                bathrooms: 2,
-                squareFeet: 1800,
-                yearBuilt: 1985
-            },
-            '5678 elm avenue, austin, tx 78745': {
-                address: '5678 Elm Avenue, Austin, TX 78745',
-                price: 520000,
-                lotSize: 12000,
-                zoning: 'SF-4A',
-                bedrooms: 4,
-                bathrooms: 3,
-                squareFeet: 2200,
-                yearBuilt: 1992
-            },
-            '9012 pine road, austin, tx 78702': {
-                address: '9012 Pine Road, Austin, TX 78702',
-                price: 380000,
-                lotSize: 7200,
-                zoning: 'SF-3',
-                bedrooms: 2,
-                bathrooms: 2,
-                squareFeet: 1500,
-                yearBuilt: 1978
-            },
-            // Add more sample properties for demonstration
-            '123 main street, austin, tx 78701': {
-                address: '123 Main Street, Austin, TX 78701',
-                price: 750000,
-                lotSize: 6000,
-                zoning: 'SF-2',
-                bedrooms: 3,
-                bathrooms: 2,
-                squareFeet: 2100,
-                yearBuilt: 2010
-            },
-            '456 congress avenue, austin, tx 78701': {
-                address: '456 Congress Avenue, Austin, TX 78701',
-                price: 890000,
-                lotSize: 5800,
-                zoning: 'SF-2',
-                bedrooms: 4,
-                bathrooms: 3,
-                squareFeet: 2400,
-                yearBuilt: 2015
-            }
-        };
-    }
-
-    // Main search method - can be extended to call real APIs
-    async searchProperty(address) {
-        // Simulate API call delay
-        await new Promise(resolve => setTimeout(resolve, 800));
-        
-        // Try multiple search strategies
-        let property = this.exactMatch(address) || 
-                      this.fuzzyMatch(address) || 
-                      await this.tryExternalAPIs(address);
-        
-        return property;
-    }
-
-    // Exact match in our sample database
-    exactMatch(address) {
-        const normalizedAddress = this.normalizeAddress(address);
-        return this.sampleProperties[normalizedAddress];
-    }
-
-    // Fuzzy matching for slight variations
-    fuzzyMatch(address) {
-        const normalized = this.normalizeAddress(address);
-        const keys = Object.keys(this.sampleProperties);
-        
-        // Try to find partial matches
-        for (let key of keys) {
-            if (this.addressSimilarity(normalized, key) > 0.8) {
-                return this.sampleProperties[key];
-            }
-        }
-        return null;
-    }
-
-    // External API calls - ready for real property data APIs
-    async tryExternalAPIs(address) {
-        try {
-            // Option 1: Travis County API (no public API available)
-            const countyData = await this.callTravisCountyAPI(address);
-            if (countyData) return countyData;
-            
-            // Option 2: RentCast API (replaces discontinued RealtyMole)
-            const rentCastData = await this.callRentCastAPI(address);
-            if (rentCastData) return rentCastData;
-            
-            // Option 3: Attom Data API (backup)
-            const attomData = await this.callAttomAPI(address);
-            if (attomData) return attomData;
-            
-        } catch (error) {
-            console.warn('API call failed:', error);
-        }
-        
-        return null;
-    }
-
-    // Utility methods
-    normalizeAddress(address) {
-        return address.toLowerCase()
-                     .trim()
-                     .replace(/\s+/g, ' ')
-                     .replace(/[.,]/g, '');
-    }
-
-    addressSimilarity(addr1, addr2) {
-        // Simple similarity calculation
-        const words1 = addr1.split(' ');
-        const words2 = addr2.split(' ');
-        const commonWords = words1.filter(word => words2.includes(word));
-        return commonWords.length / Math.max(words1.length, words2.length);
-    }
-
-    // Future API integration methods
-    async callRentCastAPI(address) {
-        // RentCast API integration (replaces discontinued RealtyMole)
-        // const API_KEY = 'your-rentcast-api-key';
-        // const response = await fetch(`https://api.rentcast.io/v1/properties?address=${encodeURIComponent(address)}`, {
-        //     headers: { 'X-API-Key': API_KEY }
-        // });
-        // return await response.json();
-        return null;
-    }
-
-    async callTravisCountyAPI(address) {
-        try {
-            // Travis County doesn't have a public API, but we'll simulate the attempt
-            // with a timeout to avoid hanging the app
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 3000); // 3 second timeout
-            
-            const response = await fetch(`https://search.traviscad.org/api/property/search?q=${encodeURIComponent(address)}&limit=1`, {
-                signal: controller.signal
-            });
-            
-            clearTimeout(timeoutId);
-            
-            if (response.ok) {
-                const data = await response.json();
-                
-                if (data && data.features && data.features.length > 0) {
-                    const property = data.features[0].properties;
-                    return this.formatTravisCountyData(property);
-                }
-            }
-        } catch (error) {
-            console.warn('Travis County API not available:', error.message);
-        }
-        return null;
-    }
-
-    formatTravisCountyData(data) {
-        return {
-            address: data.situs_address || data.property_address || 'Address not available',
-            price: data.market_value || data.appraised_value || 0,
-            lotSize: data.land_area_sq_ft || data.lot_size || 0,
-            zoning: data.zoning || 'Unknown',
-            bedrooms: data.bedrooms || 0,
-            bathrooms: data.bathrooms || 0,
-            squareFeet: data.improvement_area_sq_ft || data.living_area || 0,
-            yearBuilt: data.year_built || 0
-        };
-    }
-}
-
-// Initialize the property service
-const propertyService = new PropertyDataService();
+// Global variables
+let uploadedData = null;
+let analysisResults = null;
 
 // Initialize the application
 document.addEventListener('DOMContentLoaded', function() {
-    setupAddressSearch();
+    setupFileUpload();
 });
 
-// Address search setup
-function setupAddressSearch() {
-    const addressInput = document.getElementById('addressInput');
+// File upload setup
+function setupFileUpload() {
+    const csvFile = document.getElementById('csvFile');
+    const uploadZone = document.getElementById('uploadZone');
     
-    // Enable search on Enter key
-    addressInput.addEventListener('keypress', function(e) {
-        if (e.key === 'Enter') {
-            searchProperty();
-        }
-    });
+    // File input change
+    csvFile.addEventListener('change', handleFileSelect);
+    
+    // Drag and drop
+    uploadZone.addEventListener('dragover', handleDragOver);
+    uploadZone.addEventListener('drop', handleDrop);
+    uploadZone.addEventListener('dragenter', handleDragEnter);
+    uploadZone.addEventListener('dragleave', handleDragLeave);
 }
 
-function fillExample(address) {
-    document.getElementById('addressInput').value = address;
+function handleDragOver(e) {
+    e.preventDefault();
+    e.stopPropagation();
 }
 
-async function searchProperty() {
-    const address = document.getElementById('addressInput').value.trim();
+function handleDragEnter(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    document.getElementById('uploadZone').classList.add('drag-over');
+}
+
+function handleDragLeave(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    document.getElementById('uploadZone').classList.remove('drag-over');
+}
+
+function handleDrop(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    document.getElementById('uploadZone').classList.remove('drag-over');
     
-    if (!address) {
-        alert('Please enter an address.');
+    const files = e.dataTransfer.files;
+    if (files.length > 0) {
+        handleFile(files[0]);
+    }
+}
+
+function handleFileSelect(e) {
+    const file = e.target.files[0];
+    if (file) {
+        handleFile(file);
+    }
+}
+
+function handleFile(file) {
+    if (!file.name.toLowerCase().endsWith('.csv')) {
+        alert('Please select a CSV file.');
         return;
     }
     
-    const searchBtn = document.querySelector('.btn-search');
-    const originalText = searchBtn.innerHTML;
-    searchBtn.innerHTML = '<span class="loading"></span> Searching...';
-    searchBtn.disabled = true;
-    
-    try {
-        // Use the property service to search
-        const property = await propertyService.searchProperty(address);
-        
-        if (property) {
-            currentProperty = property;
-            showPropertyInfo(property);
-            analyzeProperty();
-        } else {
-            showPropertyNotFound(address);
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        try {
+            const csvData = e.target.result;
+            const properties = parseCSV(csvData);
+            
+            if (properties.length === 0) {
+                alert('No valid properties found in the CSV file.');
+                return;
+            }
+            
+            uploadedData = properties;
+            showFileInfo(file, properties.length);
+            
+        } catch (error) {
+            alert('Error reading CSV file: ' + error.message);
         }
-    } catch (error) {
-        alert('Error searching property: ' + error.message);
-    } finally {
-        searchBtn.innerHTML = originalText;
-        searchBtn.disabled = false;
+    };
+    
+    reader.readAsText(file);
+}
+
+function parseCSV(csvData) {
+    const lines = csvData.split('\n').filter(line => line.trim());
+    if (lines.length < 2) {
+        throw new Error('CSV file must have at least a header row and one data row.');
     }
-}
-
-function showPropertyNotFound(address) {
-    alert(`Property not found for "${address}". 
-
-🔍 Currently using sample data for demonstration.
-
-Try our sample properties to see how the analysis works:
-• 1234 Oak Street, Austin, TX 78704
-• 5678 Elm Avenue, Austin, TX 78745  
-• 9012 Pine Road, Austin, TX 78702
-• 123 Main Street, Austin, TX 78701
-• 456 Congress Avenue, Austin, TX 78701
-
-For real property data, we can integrate with:
-• RentCast API (50 free calls/month, then $74+)
-• RealEstateAPI.com (200+ data sources)
-• Attom Data API (enterprise-grade)
-
-Check the API Integration Guide for setup instructions! 📋`);
-}
-
-function showPropertyInfo(property) {
-    const propertyInfo = document.getElementById('propertyInfo');
-    const propertyAddress = document.getElementById('propertyAddress');
-    const propertyDetails = document.getElementById('propertyDetails');
     
-    propertyAddress.textContent = property.address;
-    propertyDetails.innerHTML = `
-        <strong>Price:</strong> $${property.price.toLocaleString()} • 
-        <strong>Lot Size:</strong> ${property.lotSize.toLocaleString()} sq ft • 
-        <strong>Zoning:</strong> ${property.zoning} • 
-        <strong>Built:</strong> ${property.yearBuilt}<br>
-        ${property.bedrooms} bed, ${property.bathrooms} bath • ${property.squareFeet.toLocaleString()} sq ft
-    `;
+    const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, '').toLowerCase());
+    const properties = [];
     
-    propertyInfo.style.display = 'block';
+    for (let i = 1; i < lines.length; i++) {
+        const values = parseCSVLine(lines[i]);
+        if (values.length !== headers.length) continue;
+        
+        const property = {};
+        headers.forEach((header, index) => {
+            property[header] = values[index];
+        });
+        
+        // Convert to standard format
+        const standardProperty = {
+            address: extractAddress(property),
+            price: extractPrice(property),
+            lotSize: extractLotSize(property),
+            zoning: extractZoning(property),
+            bedrooms: parseInt(property.bedrooms) || 0,
+            bathrooms: parseFloat(property.bathrooms) || 0,
+            squareFeet: parseInt(property['square feet']) || 0,
+            yearBuilt: parseInt(property['year built']) || 0
+        };
+        
+        if (standardProperty.address && standardProperty.price && standardProperty.lotSize) {
+            properties.push(standardProperty);
+        }
+    }
+    
+    return properties;
 }
 
-function clearProperty() {
-    currentProperty = null;
+function parseCSVLine(line) {
+    const result = [];
+    let current = '';
+    let inQuotes = false;
+    
+    for (let i = 0; i < line.length; i++) {
+        const char = line[i];
+        
+        if (char === '"') {
+            inQuotes = !inQuotes;
+        } else if (char === ',' && !inQuotes) {
+            result.push(current.trim());
+            current = '';
+        } else {
+            current += char;
+        }
+    }
+    
+    result.push(current.trim());
+    return result;
+}
+
+function showFileInfo(file, propertyCount) {
+    const fileInfo = document.getElementById('fileInfo');
+    const fileName = document.getElementById('fileName');
+    const fileDetails = document.getElementById('fileDetails');
+    const uploadZone = document.getElementById('uploadZone');
+    
+    fileName.textContent = file.name;
+    fileDetails.textContent = `${propertyCount} properties found • ${(file.size / 1024).toFixed(1)} KB`;
+    
+    uploadZone.style.display = 'none';
+    fileInfo.style.display = 'block';
+}
+
+function clearFile() {
+    uploadedData = null;
     analysisResults = null;
     
-    const propertyInfo = document.getElementById('propertyInfo');
+    const fileInfo = document.getElementById('fileInfo');
+    const uploadZone = document.getElementById('uploadZone');
     const resultsSection = document.getElementById('resultsSection');
     
-    propertyInfo.style.display = 'none';
+    fileInfo.style.display = 'none';
+    uploadZone.style.display = 'block';
     resultsSection.style.display = 'none';
     
-    document.getElementById('addressInput').value = '';
+    document.getElementById('csvFile').value = '';
     document.getElementById('exportBtn').disabled = true;
 }
 
-function analyzeProperty() {
-    if (!currentProperty) return;
+function analyzeCSV() {
+    if (!uploadedData) {
+        alert('Please upload a CSV file first.');
+        return;
+    }
     
     // Get configuration values
     const config = {
@@ -311,16 +222,22 @@ function analyzeProperty() {
         renovationBudget: parseFloat(document.getElementById('renovationBudget').value) || 100000
     };
     
-    // Analyze the single property
-    const analysis = analyzeSingleProperty(currentProperty, config);
+    // Analyze all properties
+    const results = [];
     
-    if (analysis) {
-        analysisResults = [analysis];
-        displayResults(analysisResults);
-        document.getElementById('exportBtn').disabled = false;
-    } else {
-        displayResults([]);
-    }
+    uploadedData.forEach(property => {
+        const analysis = analyzeSingleProperty(property, config);
+        if (analysis) {
+            results.push(analysis);
+        }
+    });
+    
+    // Sort by score (highest first)
+    results.sort((a, b) => b.score - a.score);
+    
+    analysisResults = results;
+    displayResults(results);
+    document.getElementById('exportBtn').disabled = false;
 }
 
 function analyzeSingleProperty(property, config) {
@@ -361,7 +278,7 @@ function extractPrice(property) {
     const priceFields = ['price', 'list price', 'asking price', 'sale price'];
     for (const field of priceFields) {
         if (property[field]) {
-            const price = parseFloat(property[field].replace(/[$,]/g, ''));
+            const price = parseFloat(property[field].toString().replace(/[$,]/g, ''));
             if (!isNaN(price)) return price;
         }
     }
@@ -372,7 +289,7 @@ function extractLotSize(property) {
     const lotFields = ['lot size', 'lot size sqft', 'lot sq ft', 'lot area', 'land area'];
     for (const field of lotFields) {
         if (property[field]) {
-            const size = parseFloat(property[field].replace(/[,\s]/g, ''));
+            const size = parseFloat(property[field].toString().replace(/[,\s]/g, ''));
             if (!isNaN(size)) return size;
         }
     }
@@ -383,7 +300,7 @@ function extractAddress(property) {
     const addressFields = ['address', 'street address', 'property address', 'full address'];
     for (const field of addressFields) {
         if (property[field]) {
-            return property[field];
+            return property[field].toString().replace(/"/g, '');
         }
     }
     return 'Address not available';
@@ -393,7 +310,7 @@ function extractZoning(property) {
     const zoningFields = ['zoning', 'zone', 'zoning code'];
     for (const field of zoningFields) {
         if (property[field]) {
-            return property[field].toUpperCase();
+            return property[field].toString().toUpperCase();
         }
     }
     // Default to SF-3 if no zoning info
@@ -604,7 +521,7 @@ function downloadCSV(content, filename) {
 
 function clearAll() {
     if (confirm('Are you sure you want to clear all data and start over?')) {
-        clearProperty();
+        clearFile();
         
         // Reset configuration to defaults
         document.getElementById('maxPrice').value = '500000';
