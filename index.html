@@ -34,8 +34,8 @@
                         <div class="step">
                             <div class="step-number">1</div>
                             <div class="step-content">
-                                <h3>Upload Property Data</h3>
-                                <p>Import CSV files from Zillow or Realtor.com</p>
+                                <h3>Enter Address</h3>
+                                <p>Search for any property in Austin, TX</p>
                             </div>
                         </div>
                         <div class="step">
@@ -56,26 +56,35 @@
                 </div>
             </section>
 
-            <!-- File Upload Section -->
-            <section class="upload-section">
+            <!-- Address Search Section -->
+            <section class="search-section">
                 <div class="card">
-                    <h2><i class="fas fa-upload"></i> Upload Property Data</h2>
-                    <p>Upload a CSV file exported from Zillow or Realtor.com with property listings.</p>
+                    <h2><i class="fas fa-search"></i> Search Property by Address</h2>
+                    <p>Enter an Austin, TX address to analyze its lot splitting potential and investment viability.</p>
                     
-                    <div class="upload-area" id="uploadArea">
-                        <div class="upload-content">
-                            <i class="fas fa-cloud-upload-alt"></i>
-                            <h3>Drag & Drop your CSV file here</h3>
-                            <p>or <button class="btn-link" onclick="document.getElementById('fileInput').click()">browse files</button></p>
-                            <input type="file" id="fileInput" accept=".csv" style="display: none;">
+                    <div class="search-area">
+                        <div class="search-input-group">
+                            <input type="text" id="addressInput" class="address-input" placeholder="Enter address (e.g., 123 Main St, Austin, TX 78701)" />
+                            <button class="btn-search" onclick="searchProperty()">
+                                <i class="fas fa-search"></i> Analyze Property
+                            </button>
+                        </div>
+                        <div class="search-examples">
+                            <p><strong>Example addresses:</strong></p>
+                            <button class="example-btn" onclick="fillExample('1234 Oak Street, Austin, TX 78704')">1234 Oak Street, Austin, TX 78704</button>
+                            <button class="example-btn" onclick="fillExample('5678 Elm Avenue, Austin, TX 78745')">5678 Elm Avenue, Austin, TX 78745</button>
+                            <button class="example-btn" onclick="fillExample('9012 Pine Road, Austin, TX 78702')">9012 Pine Road, Austin, TX 78702</button>
                         </div>
                     </div>
                     
-                    <div class="file-info" id="fileInfo" style="display: none;">
-                        <div class="file-details">
-                            <i class="fas fa-file-csv"></i>
-                            <span id="fileName"></span>
-                            <button class="btn-remove" onclick="removeFile()">
+                    <div class="property-info" id="propertyInfo" style="display: none;">
+                        <div class="property-details">
+                            <i class="fas fa-home"></i>
+                            <div class="property-text">
+                                <h4 id="propertyAddress"></h4>
+                                <p id="propertyDetails"></p>
+                            </div>
+                            <button class="btn-remove" onclick="clearProperty()">
                                 <i class="fas fa-times"></i>
                             </button>
                         </div>
@@ -162,11 +171,8 @@
             <section class="actions-section">
                 <div class="card">
                     <div class="actions">
-                        <button class="btn-primary" onclick="analyzeProperties()" id="analyzeBtn" disabled>
-                            <i class="fas fa-search"></i> Analyze Properties
-                        </button>
                         <button class="btn-secondary" onclick="exportResults()" id="exportBtn" disabled>
-                            <i class="fas fa-download"></i> Export Results
+                            <i class="fas fa-download"></i> Export Analysis
                         </button>
                         <button class="btn-secondary" onclick="clearAll()">
                             <i class="fas fa-refresh"></i> Start Over

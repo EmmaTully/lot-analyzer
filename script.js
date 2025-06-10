@@ -1,5 +1,5 @@
 // Global variables
-let uploadedData = null;
+let currentProperty = null;
 let analysisResults = null;
 
 // Austin zoning data
@@ -11,142 +11,135 @@ const austinZoning = {
     'SF-6': { minLotSize: 1, frontSetback: 25, sideSetback: 20, maxHeight: 40 }
 };
 
+// Sample property database (in real app, this would come from an API)
+const sampleProperties = {
+    '1234 oak street, austin, tx 78704': {
+        address: '1234 Oak Street, Austin, TX 78704',
+        price: 450000,
+        lotSize: 8500,
+        zoning: 'SF-3',
+        bedrooms: 3,
+        bathrooms: 2,
+        squareFeet: 1800,
+        yearBuilt: 1985
+    },
+    '5678 elm avenue, austin, tx 78745': {
+        address: '5678 Elm Avenue, Austin, TX 78745',
+        price: 520000,
+        lotSize: 12000,
+        zoning: 'SF-4A',
+        bedrooms: 4,
+        bathrooms: 3,
+        squareFeet: 2200,
+        yearBuilt: 1992
+    },
+    '9012 pine road, austin, tx 78702': {
+        address: '9012 Pine Road, Austin, TX 78702',
+        price: 380000,
+        lotSize: 7200,
+        zoning: 'SF-3',
+        bedrooms: 2,
+        bathrooms: 2,
+        squareFeet: 1500,
+        yearBuilt: 1978
+    }
+};
+
 // Initialize the application
 document.addEventListener('DOMContentLoaded', function() {
-    setupFileUpload();
-    setupDragAndDrop();
+    setupAddressSearch();
 });
 
-// File upload setup
-function setupFileUpload() {
-    const fileInput = document.getElementById('fileInput');
-    const uploadArea = document.getElementById('uploadArea');
+// Address search setup
+function setupAddressSearch() {
+    const addressInput = document.getElementById('addressInput');
     
-    fileInput.addEventListener('change', handleFileSelect);
-    uploadArea.addEventListener('click', () => fileInput.click());
+    // Enable search on Enter key
+    addressInput.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            searchProperty();
+        }
+    });
 }
 
-// Drag and drop setup
-function setupDragAndDrop() {
-    const uploadArea = document.getElementById('uploadArea');
+function fillExample(address) {
+    document.getElementById('addressInput').value = address;
+}
+
+function searchProperty() {
+    const address = document.getElementById('addressInput').value.trim();
     
-    uploadArea.addEventListener('dragover', handleDragOver);
-    uploadArea.addEventListener('dragleave', handleDragLeave);
-    uploadArea.addEventListener('drop', handleDrop);
-}
-
-function handleDragOver(e) {
-    e.preventDefault();
-    e.currentTarget.classList.add('dragover');
-}
-
-function handleDragLeave(e) {
-    e.preventDefault();
-    e.currentTarget.classList.remove('dragover');
-}
-
-function handleDrop(e) {
-    e.preventDefault();
-    e.currentTarget.classList.remove('dragover');
-    
-    const files = e.dataTransfer.files;
-    if (files.length > 0) {
-        handleFile(files[0]);
-    }
-}
-
-function handleFileSelect(e) {
-    const file = e.target.files[0];
-    if (file) {
-        handleFile(file);
-    }
-}
-
-function handleFile(file) {
-    if (!file.name.toLowerCase().endsWith('.csv')) {
-        alert('Please upload a CSV file.');
+    if (!address) {
+        alert('Please enter an address.');
         return;
     }
     
-    const reader = new FileReader();
-    reader.onload = function(e) {
+    const searchBtn = document.querySelector('.btn-search');
+    const originalText = searchBtn.innerHTML;
+    searchBtn.innerHTML = '<span class="loading"></span> Searching...';
+    searchBtn.disabled = true;
+    
+    // Simulate API call delay
+    setTimeout(() => {
         try {
-            parseCSV(e.target.result, file.name);
+            const property = findProperty(address);
+            if (property) {
+                currentProperty = property;
+                showPropertyInfo(property);
+                analyzeProperty();
+            } else {
+                alert('Property not found. Please try one of the example addresses or check your spelling.');
+            }
         } catch (error) {
-            alert('Error reading file: ' + error.message);
+            alert('Error searching property: ' + error.message);
+        } finally {
+            searchBtn.innerHTML = originalText;
+            searchBtn.disabled = false;
         }
-    };
-    reader.readAsText(file);
+    }, 1500);
 }
 
-function parseCSV(csvText, fileName) {
-    const lines = csvText.split('\n');
-    const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
+function findProperty(address) {
+    // Normalize address for lookup
+    const normalizedAddress = address.toLowerCase().trim();
     
-    const data = [];
-    for (let i = 1; i < lines.length; i++) {
-        if (lines[i].trim()) {
-            const values = lines[i].split(',');
-            const row = {};
-            headers.forEach((header, index) => {
-                row[header] = values[index] ? values[index].trim() : '';
-            });
-            data.push(row);
-        }
-    }
-    
-    uploadedData = data;
-    showFileInfo(fileName, data.length);
-    enableAnalysisButton();
+    // Check our sample database
+    return sampleProperties[normalizedAddress] || null;
 }
 
-function showFileInfo(fileName, rowCount) {
-    const fileInfo = document.getElementById('fileInfo');
-    const fileNameSpan = document.getElementById('fileName');
-    const uploadArea = document.getElementById('uploadArea');
+function showPropertyInfo(property) {
+    const propertyInfo = document.getElementById('propertyInfo');
+    const propertyAddress = document.getElementById('propertyAddress');
+    const propertyDetails = document.getElementById('propertyDetails');
     
-    fileNameSpan.textContent = `${fileName} (${rowCount} properties)`;
-    fileInfo.style.display = 'block';
-    uploadArea.style.display = 'none';
+    propertyAddress.textContent = property.address;
+    propertyDetails.innerHTML = `
+        <strong>Price:</strong> $${property.price.toLocaleString()} • 
+        <strong>Lot Size:</strong> ${property.lotSize.toLocaleString()} sq ft • 
+        <strong>Zoning:</strong> ${property.zoning} • 
+        <strong>Built:</strong> ${property.yearBuilt}<br>
+        ${property.bedrooms} bed, ${property.bathrooms} bath • ${property.squareFeet.toLocaleString()} sq ft
+    `;
+    
+    propertyInfo.style.display = 'block';
 }
 
-function removeFile() {
-    uploadedData = null;
+function clearProperty() {
+    currentProperty = null;
     analysisResults = null;
     
-    const fileInfo = document.getElementById('fileInfo');
-    const uploadArea = document.getElementById('uploadArea');
+    const propertyInfo = document.getElementById('propertyInfo');
     const resultsSection = document.getElementById('resultsSection');
     
-    fileInfo.style.display = 'none';
-    uploadArea.style.display = 'block';
+    propertyInfo.style.display = 'none';
     resultsSection.style.display = 'none';
     
-    disableButtons();
-    
-    // Reset file input
-    document.getElementById('fileInput').value = '';
-}
-
-function enableAnalysisButton() {
-    document.getElementById('analyzeBtn').disabled = false;
-}
-
-function disableButtons() {
-    document.getElementById('analyzeBtn').disabled = true;
+    document.getElementById('addressInput').value = '';
     document.getElementById('exportBtn').disabled = true;
 }
 
-function analyzeProperties() {
-    if (!uploadedData) {
-        alert('Please upload a CSV file first.');
-        return;
-    }
-    
-    const analyzeBtn = document.getElementById('analyzeBtn');
-    const originalText = analyzeBtn.innerHTML;
-    analyzeBtn.innerHTML = '<span class="loading"></span> Analyzing...';
-    analyzeBtn.disabled = true;
+function analyzeProperty() {
+    if (!currentProperty) return;
     
     // Get configuration values
     const config = {
@@ -156,50 +149,23 @@ function analyzeProperties() {
         renovationBudget: parseFloat(document.getElementById('renovationBudget').value) || 100000
     };
     
-    // Simulate analysis delay for better UX
-    setTimeout(() => {
-        try {
-            analysisResults = performAnalysis(uploadedData, config);
-            displayResults(analysisResults);
-            
-            analyzeBtn.innerHTML = originalText;
-            analyzeBtn.disabled = false;
-            document.getElementById('exportBtn').disabled = false;
-        } catch (error) {
-            alert('Error during analysis: ' + error.message);
-            analyzeBtn.innerHTML = originalText;
-            analyzeBtn.disabled = false;
-        }
-    }, 1500);
+    // Analyze the single property
+    const analysis = analyzeSingleProperty(currentProperty, config);
+    
+    if (analysis) {
+        analysisResults = [analysis];
+        displayResults(analysisResults);
+        document.getElementById('exportBtn').disabled = false;
+    } else {
+        displayResults([]);
+    }
 }
 
-function performAnalysis(data, config) {
-    const results = [];
-    
-    data.forEach((property, index) => {
-        try {
-            const analysis = analyzeProperty(property, config);
-            if (analysis) {
-                results.push({
-                    ...analysis,
-                    originalIndex: index
-                });
-            }
-        } catch (error) {
-            console.warn(`Error analyzing property ${index}:`, error);
-        }
-    });
-    
-    // Sort by score (best opportunities first)
-    return results.sort((a, b) => b.score - a.score);
-}
-
-function analyzeProperty(property, config) {
-    // Extract property data (handle various CSV formats)
-    const price = extractPrice(property);
-    const lotSize = extractLotSize(property);
-    const address = extractAddress(property);
-    const zoning = extractZoning(property);
+function analyzeSingleProperty(property, config) {
+    const price = property.price;
+    const lotSize = property.lotSize;
+    const address = property.address;
+    const zoning = property.zoning;
     
     if (!price || !lotSize || price > config.maxPrice || lotSize < config.minLotSize) {
         return null;
@@ -476,7 +442,7 @@ function downloadCSV(content, filename) {
 
 function clearAll() {
     if (confirm('Are you sure you want to clear all data and start over?')) {
-        removeFile();
+        clearProperty();
         
         // Reset configuration to defaults
         document.getElementById('maxPrice').value = '500000';
