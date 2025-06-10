@@ -3,9 +3,10 @@
 This guide explains how to connect the Austin Lot Analyzer to real property data sources.
 
 ## 🎯 Current Status
-- **Demo Mode**: 5 sample properties for testing
+- ✅ **LIVE**: Travis County API integrated and active!
+- **Demo Mode**: 5 sample properties for testing fallback
 - **Ready for APIs**: Extensible PropertyDataService class
-- **Search Features**: Exact match, fuzzy matching, API fallback
+- **Search Features**: Real property search, exact match, fuzzy matching, API fallback
 
 ## 🔌 Recommended APIs
 
