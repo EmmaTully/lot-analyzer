@@ -103,16 +103,20 @@ class PropertyDataService {
         return null;
     }
 
-    // External API calls - now using Travis County API!
+    // External API calls - ready for real property data APIs
     async tryExternalAPIs(address) {
         try {
-            // Option 1: Travis County API (FREE - now active!)
+            // Option 1: Travis County API (no public API available)
             const countyData = await this.callTravisCountyAPI(address);
             if (countyData) return countyData;
             
-            // Option 2: RealtyMole API (backup)
-            const realtyMoleData = await this.callRealtyMoleAPI(address);
-            if (realtyMoleData) return realtyMoleData;
+            // Option 2: RentCast API (replaces discontinued RealtyMole)
+            const rentCastData = await this.callRentCastAPI(address);
+            if (rentCastData) return rentCastData;
+            
+            // Option 3: Attom Data API (backup)
+            const attomData = await this.callAttomAPI(address);
+            if (attomData) return attomData;
             
         } catch (error) {
             console.warn('API call failed:', error);
@@ -138,9 +142,12 @@ class PropertyDataService {
     }
 
     // Future API integration methods
-    async callRealtyMoleAPI(address) {
-        // RealtyMole API integration
-        // const response = await fetch(`https://api.realtymole.com/v1/properties?address=${encodeURIComponent(address)}`);
+    async callRentCastAPI(address) {
+        // RentCast API integration (replaces discontinued RealtyMole)
+        // const API_KEY = 'your-rentcast-api-key';
+        // const response = await fetch(`https://api.rentcast.io/v1/properties?address=${encodeURIComponent(address)}`, {
+        //     headers: { 'X-API-Key': API_KEY }
+        // });
         // return await response.json();
         return null;
     }
@@ -245,7 +252,7 @@ async function searchProperty() {
 function showPropertyNotFound(address) {
     alert(`Property not found for "${address}". 
 
-🔍 Searched for real Austin properties but Travis County's API is not publicly available.
+🔍 Currently using sample data for demonstration.
 
 Try our sample properties to see how the analysis works:
 • 1234 Oak Street, Austin, TX 78704
@@ -255,9 +262,9 @@ Try our sample properties to see how the analysis works:
 • 456 Congress Avenue, Austin, TX 78701
 
 For real property data, we can integrate with:
-• RealtyMole API (~$0.50 per lookup)
-• Attom Data API
-• Other real estate data providers
+• RentCast API (50 free calls/month, then $74+)
+• RealEstateAPI.com (200+ data sources)
+• Attom Data API (enterprise-grade)
 
 Check the API Integration Guide for setup instructions! 📋`);
 }

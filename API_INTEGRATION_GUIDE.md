@@ -4,20 +4,22 @@ This guide explains how to connect the Austin Lot Analyzer to real property data
 
 ## 🎯 Current Status
 - ❌ **Travis County**: No public API available (web interface only)
+- ❌ **RealtyMole**: API discontinued March 2025
+- ✅ **RentCast**: Active replacement for RealtyMole (50 free calls/month)
 - **Demo Mode**: 5 sample properties for testing
 - **Ready for APIs**: Extensible PropertyDataService class with timeout handling
 - **Search Features**: Exact match, fuzzy matching, API fallback structure
 
-## 🔌 Recommended APIs
+## 🔌 Recommended APIs (2025 Updated)
 
-### 1. **RealtyMole API** (Recommended)
-**Best for**: Comprehensive property data including lot size, zoning, pricing
+### 1. **RentCast API** (Recommended - Replaces RealtyMole)
+**Best for**: Comprehensive property data including lot size, pricing, market trends
 
 ```javascript
 // Integration example in script.js
-async callRealtyMoleAPI(address) {
-    const API_KEY = 'your-realtymole-api-key';
-    const response = await fetch(`https://api.realtymole.com/v1/properties?address=${encodeURIComponent(address)}`, {
+async callRentCastAPI(address) {
+    const API_KEY = 'your-rentcast-api-key';
+    const response = await fetch(`https://api.rentcast.io/v1/properties?address=${encodeURIComponent(address)}`, {
         headers: {
             'X-API-Key': API_KEY
         }
@@ -25,12 +27,12 @@ async callRealtyMoleAPI(address) {
     
     if (response.ok) {
         const data = await response.json();
-        return this.formatRealtyMoleData(data);
+        return this.formatRentCastData(data);
     }
     return null;
 }
 
-formatRealtyMoleData(data) {
+formatRentCastData(data) {
     return {
         address: data.address,
         price: data.price || data.estimatedValue,
@@ -44,8 +46,8 @@ formatRealtyMoleData(data) {
 }
 ```
 
-**Pricing**: ~$0.50-1.00 per lookup
-**Sign up**: https://www.realtymole.com/api
+**Pricing**: Free tier (50 calls/month), then $74-449/month
+**Sign up**: https://www.rentcast.io/api
 
 ### 2. **Travis County Appraisal District API**
 **Best for**: Official Austin property records, lot sizes, zoning
@@ -66,7 +68,30 @@ async callTravisCountyAPI(address) {
 **Pricing**: Free for public records
 **Documentation**: https://www.traviscad.org/api-docs
 
-### 3. **Attom Data API**
+### 3. **RealEstateAPI.com**
+**Best for**: Comprehensive property data with 200+ data sources
+
+```javascript
+async callRealEstateAPI(address) {
+    const API_KEY = 'your-realestate-api-key';
+    const response = await fetch(`https://api.realestateapi.com/v2/PropertyDetail?address=${encodeURIComponent(address)}`, {
+        headers: {
+            'x-api-key': API_KEY
+        }
+    });
+    
+    if (response.ok) {
+        const data = await response.json();
+        return this.formatRealEstateAPIData(data);
+    }
+    return null;
+}
+```
+
+**Pricing**: Contact for pricing (free 2-week trial)
+**Sign up**: https://www.realestateapi.com/
+
+### 4. **Attom Data API**
 **Best for**: Comprehensive real estate data, market analytics
 
 ```javascript
