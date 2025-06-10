@@ -147,8 +147,16 @@ class PropertyDataService {
 
     async callTravisCountyAPI(address) {
         try {
-            // Travis County Appraisal District API
-            const response = await fetch(`https://search.traviscad.org/api/property/search?q=${encodeURIComponent(address)}&limit=1`);
+            // Travis County doesn't have a public API, but we'll simulate the attempt
+            // with a timeout to avoid hanging the app
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 3000); // 3 second timeout
+            
+            const response = await fetch(`https://search.traviscad.org/api/property/search?q=${encodeURIComponent(address)}&limit=1`, {
+                signal: controller.signal
+            });
+            
+            clearTimeout(timeoutId);
             
             if (response.ok) {
                 const data = await response.json();
@@ -159,7 +167,7 @@ class PropertyDataService {
                 }
             }
         } catch (error) {
-            console.warn('Travis County API error:', error);
+            console.warn('Travis County API not available:', error.message);
         }
         return null;
     }
@@ -237,19 +245,21 @@ async function searchProperty() {
 function showPropertyNotFound(address) {
     alert(`Property not found for "${address}". 
 
-🎉 Now searching REAL Austin properties via Travis County Appraisal District!
+🔍 Searched for real Austin properties but Travis County's API is not publicly available.
 
-Try searching for actual Austin addresses like:
-• 123 Main St, Austin, TX
-• 456 Congress Ave, Austin, TX  
-• Any real Austin street address
-
-If not found in county records, we'll fall back to sample properties:
+Try our sample properties to see how the analysis works:
 • 1234 Oak Street, Austin, TX 78704
 • 5678 Elm Avenue, Austin, TX 78745  
 • 9012 Pine Road, Austin, TX 78702
+• 123 Main Street, Austin, TX 78701
+• 456 Congress Avenue, Austin, TX 78701
 
-The app now uses live property data from Travis County! 🏠`);
+For real property data, we can integrate with:
+• RealtyMole API (~$0.50 per lookup)
+• Attom Data API
+• Other real estate data providers
+
+Check the API Integration Guide for setup instructions! 📋`);
 }
 
 function showPropertyInfo(property) {
