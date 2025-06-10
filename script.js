@@ -254,21 +254,27 @@ function analyzeSingleProperty(property, config) {
     const address = property.address;
     const zoning = property.zoning;
     
-    if (!price || !lotSize || price > config.maxPrice || lotSize < config.minLotSize) {
+    // Skip only if missing essential data
+    if (!price || !lotSize || !address) {
         return null;
     }
     
     // Calculate lot split potential
     const splitAnalysis = calculateLotSplitPotential(lotSize, zoning);
-    if (!splitAnalysis.canSplit) {
-        return null;
-    }
     
-    // Calculate financial viability
+    // Calculate financial viability (even if can't split)
     const financialAnalysis = calculateFinancialViability(price, config, splitAnalysis);
     
     // Calculate overall score
     const score = calculateOverallScore(splitAnalysis, financialAnalysis, config);
+    
+    // Determine status based on multiple factors
+    let status = getStatus(score);
+    if (!splitAnalysis.canSplit) {
+        status = 'poor'; // Can't split = poor investment
+    } else if (price > config.maxPrice) {
+        status = 'poor'; // Too expensive
+    }
     
     return {
         address: address,
@@ -278,7 +284,10 @@ function analyzeSingleProperty(property, config) {
         splitAnalysis: splitAnalysis,
         financialAnalysis: financialAnalysis,
         score: score,
-        status: getStatus(score)
+        status: status,
+        canSplit: splitAnalysis.canSplit,
+        meetsPrice: price <= config.maxPrice,
+        meetsSize: lotSize >= config.minLotSize
     };
 }
 
@@ -386,17 +395,24 @@ function calculateFinancialViability(purchasePrice, config, splitAnalysis) {
 function calculateOverallScore(splitAnalysis, financialAnalysis, config) {
     let score = 0;
     
+    // If can't split, score is very low
+    if (!splitAnalysis.canSplit) {
+        return Math.round(splitAnalysis.splitRatio * 20); // Max 20 points for non-splittable
+    }
+    
     // Lot size score (0-30 points)
     const lotSizeRatio = splitAnalysis.splitRatio;
     score += Math.min(30, lotSizeRatio * 60);
     
     // Profit margin score (0-40 points)
-    const profitRatio = financialAnalysis.profitMargin / config.targetProfit;
+    const profitRatio = Math.max(0, financialAnalysis.profitMargin / config.targetProfit);
     score += Math.min(40, profitRatio * 40);
     
     // Buildable area score (0-20 points)
-    const buildableRatio = splitAnalysis.buildableArea / splitAnalysis.newLotSize;
-    score += Math.min(20, buildableRatio * 30);
+    if (splitAnalysis.newLotSize > 0) {
+        const buildableRatio = splitAnalysis.buildableArea / splitAnalysis.newLotSize;
+        score += Math.min(20, buildableRatio * 30);
+    }
     
     // Financial viability bonus (0-10 points)
     if (financialAnalysis.meetsTarget) {
@@ -425,10 +441,11 @@ function displayResults(results) {
             </div>
         `;
     } else {
+        const viableCount = results.filter(r => r.canSplit && r.meetsPrice).length;
         resultsContent.innerHTML = `
             <div style="margin-bottom: 20px;">
-                <h3>Found ${results.length} properties with lot split potential!</h3>
-                <p>Properties are ranked by overall investment opportunity score.</p>
+                <h3>Analyzed ${results.length} properties - ${viableCount} with lot split potential!</h3>
+                <p>All properties are shown ranked by investment opportunity score. Look for "Good" or "Excellent" status.</p>
             </div>
             ${generateResultsTable(results)}
         `;
@@ -438,22 +455,36 @@ function displayResults(results) {
 }
 
 function generateResultsTable(results) {
-    const tableRows = results.map(result => `
-        <tr>
-            <td>${result.address}</td>
-            <td>$${result.price.toLocaleString()}</td>
-            <td>${result.lotSize.toLocaleString()} sq ft</td>
-            <td>${result.splitAnalysis.newLotSize.toLocaleString()} sq ft</td>
-            <td>$${Math.round(result.financialAnalysis.profit).toLocaleString()}</td>
-            <td>${result.financialAnalysis.profitMargin.toFixed(1)}%</td>
-            <td>
-                <span class="status-badge status-${result.status}">
-                    ${result.status.charAt(0).toUpperCase() + result.status.slice(1)}
-                </span>
-            </td>
-            <td>${result.score}/100</td>
-        </tr>
-    `).join('');
+    const tableRows = results.map(result => {
+        const newLotSize = result.canSplit ? result.splitAnalysis.newLotSize.toLocaleString() : 'Cannot split';
+        const profit = result.canSplit ? `$${Math.round(result.financialAnalysis.profit).toLocaleString()}` : 'N/A';
+        const profitMargin = result.canSplit ? `${result.financialAnalysis.profitMargin.toFixed(1)}%` : 'N/A';
+        
+        // Add indicators for why a property might not work
+        let statusText = result.status.charAt(0).toUpperCase() + result.status.slice(1);
+        if (!result.canSplit) {
+            statusText += ' (Too small)';
+        } else if (!result.meetsPrice) {
+            statusText += ' (Too expensive)';
+        }
+        
+        return `
+            <tr>
+                <td>${result.address}</td>
+                <td>$${result.price.toLocaleString()}</td>
+                <td>${result.lotSize.toLocaleString()} sq ft</td>
+                <td>${newLotSize}</td>
+                <td>${profit}</td>
+                <td>${profitMargin}</td>
+                <td>
+                    <span class="status-badge status-${result.status}">
+                        ${statusText}
+                    </span>
+                </td>
+                <td>${result.score}/100</td>
+            </tr>
+        `;
+    }).join('');
     
     return `
         <table class="results-table">
