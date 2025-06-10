@@ -224,8 +224,8 @@ function analyzeCSV() {
     
     // Get configuration values
     const config = {
-        maxPrice: parseFloat(document.getElementById('maxPrice').value) || 500000,
-        minLotSize: parseFloat(document.getElementById('minLotSize').value) || 7000,
+        maxPrice: parseFloat(document.getElementById('maxPrice').value) || 900000,
+        minLotSize: parseFloat(document.getElementById('minLotSize').value) || 11500,
         targetProfit: parseFloat(document.getElementById('targetProfit').value) || 20,
         renovationBudget: parseFloat(document.getElementById('renovationBudget').value) || 100000
     };
@@ -435,7 +435,6 @@ function displayResults(results) {
     }
     
     resultsSection.style.display = 'block';
-    resultsSection.scrollIntoView({ behavior: 'smooth' });
 }
 
 function generateResultsTable(results) {
@@ -532,8 +531,8 @@ function clearAll() {
         clearFile();
         
         // Reset configuration to defaults
-        document.getElementById('maxPrice').value = '500000';
-        document.getElementById('minLotSize').value = '7000';
+        document.getElementById('maxPrice').value = '900000';
+        document.getElementById('minLotSize').value = '11500';
         document.getElementById('targetProfit').value = '20';
         document.getElementById('renovationBudget').value = '100000';
     }
