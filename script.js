@@ -11,39 +11,160 @@ const austinZoning = {
     'SF-6': { minLotSize: 1, frontSetback: 25, sideSetback: 20, maxHeight: 40 }
 };
 
-// Sample property database (in real app, this would come from an API)
-const sampleProperties = {
-    '1234 oak street, austin, tx 78704': {
-        address: '1234 Oak Street, Austin, TX 78704',
-        price: 450000,
-        lotSize: 8500,
-        zoning: 'SF-3',
-        bedrooms: 3,
-        bathrooms: 2,
-        squareFeet: 1800,
-        yearBuilt: 1985
-    },
-    '5678 elm avenue, austin, tx 78745': {
-        address: '5678 Elm Avenue, Austin, TX 78745',
-        price: 520000,
-        lotSize: 12000,
-        zoning: 'SF-4A',
-        bedrooms: 4,
-        bathrooms: 3,
-        squareFeet: 2200,
-        yearBuilt: 1992
-    },
-    '9012 pine road, austin, tx 78702': {
-        address: '9012 Pine Road, Austin, TX 78702',
-        price: 380000,
-        lotSize: 7200,
-        zoning: 'SF-3',
-        bedrooms: 2,
-        bathrooms: 2,
-        squareFeet: 1500,
-        yearBuilt: 1978
+// Property data service - expandable to real APIs
+class PropertyDataService {
+    constructor() {
+        // Sample database - in production, this would call real APIs
+        this.sampleProperties = {
+            '1234 oak street, austin, tx 78704': {
+                address: '1234 Oak Street, Austin, TX 78704',
+                price: 450000,
+                lotSize: 8500,
+                zoning: 'SF-3',
+                bedrooms: 3,
+                bathrooms: 2,
+                squareFeet: 1800,
+                yearBuilt: 1985
+            },
+            '5678 elm avenue, austin, tx 78745': {
+                address: '5678 Elm Avenue, Austin, TX 78745',
+                price: 520000,
+                lotSize: 12000,
+                zoning: 'SF-4A',
+                bedrooms: 4,
+                bathrooms: 3,
+                squareFeet: 2200,
+                yearBuilt: 1992
+            },
+            '9012 pine road, austin, tx 78702': {
+                address: '9012 Pine Road, Austin, TX 78702',
+                price: 380000,
+                lotSize: 7200,
+                zoning: 'SF-3',
+                bedrooms: 2,
+                bathrooms: 2,
+                squareFeet: 1500,
+                yearBuilt: 1978
+            },
+            // Add more sample properties for demonstration
+            '123 main street, austin, tx 78701': {
+                address: '123 Main Street, Austin, TX 78701',
+                price: 750000,
+                lotSize: 6000,
+                zoning: 'SF-2',
+                bedrooms: 3,
+                bathrooms: 2,
+                squareFeet: 2100,
+                yearBuilt: 2010
+            },
+            '456 congress avenue, austin, tx 78701': {
+                address: '456 Congress Avenue, Austin, TX 78701',
+                price: 890000,
+                lotSize: 5800,
+                zoning: 'SF-2',
+                bedrooms: 4,
+                bathrooms: 3,
+                squareFeet: 2400,
+                yearBuilt: 2015
+            }
+        };
     }
-};
+
+    // Main search method - can be extended to call real APIs
+    async searchProperty(address) {
+        // Simulate API call delay
+        await new Promise(resolve => setTimeout(resolve, 800));
+        
+        // Try multiple search strategies
+        let property = this.exactMatch(address) || 
+                      this.fuzzyMatch(address) || 
+                      await this.tryExternalAPIs(address);
+        
+        return property;
+    }
+
+    // Exact match in our sample database
+    exactMatch(address) {
+        const normalizedAddress = this.normalizeAddress(address);
+        return this.sampleProperties[normalizedAddress];
+    }
+
+    // Fuzzy matching for slight variations
+    fuzzyMatch(address) {
+        const normalized = this.normalizeAddress(address);
+        const keys = Object.keys(this.sampleProperties);
+        
+        // Try to find partial matches
+        for (let key of keys) {
+            if (this.addressSimilarity(normalized, key) > 0.8) {
+                return this.sampleProperties[key];
+            }
+        }
+        return null;
+    }
+
+    // Placeholder for external API calls
+    async tryExternalAPIs(address) {
+        // This is where you'd integrate with real APIs
+        // For now, return null to show "not found"
+        
+        // Example API integration structure:
+        /*
+        try {
+            // Option 1: RealtyMole API
+            const realtyMoleData = await this.callRealtyMoleAPI(address);
+            if (realtyMoleData) return realtyMoleData;
+            
+            // Option 2: County Records
+            const countyData = await this.callTravisCountyAPI(address);
+            if (countyData) return countyData;
+            
+            // Option 3: Zillow (if available)
+            const zillowData = await this.callZillowAPI(address);
+            if (zillowData) return zillowData;
+            
+        } catch (error) {
+            console.warn('API call failed:', error);
+        }
+        */
+        
+        return null;
+    }
+
+    // Utility methods
+    normalizeAddress(address) {
+        return address.toLowerCase()
+                     .trim()
+                     .replace(/\s+/g, ' ')
+                     .replace(/[.,]/g, '');
+    }
+
+    addressSimilarity(addr1, addr2) {
+        // Simple similarity calculation
+        const words1 = addr1.split(' ');
+        const words2 = addr2.split(' ');
+        const commonWords = words1.filter(word => words2.includes(word));
+        return commonWords.length / Math.max(words1.length, words2.length);
+    }
+
+    // Future API integration methods
+    async callRealtyMoleAPI(address) {
+        // RealtyMole API integration
+        // const response = await fetch(`https://api.realtymole.com/v1/properties?address=${encodeURIComponent(address)}`);
+        // return await response.json();
+        return null;
+    }
+
+    async callTravisCountyAPI(address) {
+        // Travis County Appraisal District API
+        // const response = await fetch(`https://api.traviscad.org/property?address=${encodeURIComponent(address)}`);
+        // return await response.json();
+        return null;
+    }
+}
+
+// Initialize the property service
+const propertyService = new PropertyDataService();
 
 // Initialize the application
 document.addEventListener('DOMContentLoaded', function() {
@@ -66,7 +187,7 @@ function fillExample(address) {
     document.getElementById('addressInput').value = address;
 }
 
-function searchProperty() {
+async function searchProperty() {
     const address = document.getElementById('addressInput').value.trim();
     
     if (!address) {
@@ -79,32 +200,42 @@ function searchProperty() {
     searchBtn.innerHTML = '<span class="loading"></span> Searching...';
     searchBtn.disabled = true;
     
-    // Simulate API call delay
-    setTimeout(() => {
-        try {
-            const property = findProperty(address);
-            if (property) {
-                currentProperty = property;
-                showPropertyInfo(property);
-                analyzeProperty();
-            } else {
-                alert('Property not found. Please try one of the example addresses or check your spelling.');
-            }
-        } catch (error) {
-            alert('Error searching property: ' + error.message);
-        } finally {
-            searchBtn.innerHTML = originalText;
-            searchBtn.disabled = false;
+    try {
+        // Use the property service to search
+        const property = await propertyService.searchProperty(address);
+        
+        if (property) {
+            currentProperty = property;
+            showPropertyInfo(property);
+            analyzeProperty();
+        } else {
+            showPropertyNotFound(address);
         }
-    }, 1500);
+    } catch (error) {
+        alert('Error searching property: ' + error.message);
+    } finally {
+        searchBtn.innerHTML = originalText;
+        searchBtn.disabled = false;
+    }
 }
 
-function findProperty(address) {
-    // Normalize address for lookup
-    const normalizedAddress = address.toLowerCase().trim();
-    
-    // Check our sample database
-    return sampleProperties[normalizedAddress] || null;
+function showPropertyNotFound(address) {
+    alert(`Property not found for "${address}". 
+
+This demo currently includes sample properties for:
+• 1234 Oak Street, Austin, TX 78704
+• 5678 Elm Avenue, Austin, TX 78745  
+• 9012 Pine Road, Austin, TX 78702
+• 123 Main Street, Austin, TX 78701
+• 456 Congress Avenue, Austin, TX 78701
+
+To search real properties, we would integrate with:
+• RealtyMole API
+• Travis County Appraisal District
+• Zillow API (limited access)
+• County public records
+
+Would you like to try one of the sample addresses?`);
 }
 
 function showPropertyInfo(property) {
