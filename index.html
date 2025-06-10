@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🏠 Austin Lot Analyzer - Mentor Program</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <header class="header">
+        <div class="container">
+            <div class="header-content">
+                <div class="logo">
+                    <h1>🏠 Austin Lot Analyzer</h1>
+                    <span class="badge">Mentor Program</span>
+                </div>
+                <div class="subtitle">
+                    Find properties with subdivision potential in Austin, TX
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="main">
+        <div class="container">
+            <!-- Welcome Section -->
+            <section class="welcome-section">
+                <div class="card">
+                    <h2>Welcome to the Austin Lot Analyzer! 🎯</h2>
+                    <p>This tool helps you find properties in Austin, TX that can be split into multiple lots. Upload your property data from Zillow or Realtor.com, and we'll analyze which properties have the best potential for profitable lot splitting.</p>
+                    
+                    <div class="process-steps">
+                        <div class="step">
+                            <div class="step-number">1</div>
+                            <div class="step-content">
+                                <h3>Upload Property Data</h3>
+                                <p>Import CSV files from Zillow or Realtor.com</p>
+                            </div>
+                        </div>
+                        <div class="step">
+                            <div class="step-number">2</div>
+                            <div class="step-content">
+                                <h3>Analyze Lot Split Potential</h3>
+                                <p>Check zoning laws and lot size requirements</p>
+                            </div>
+                        </div>
+                        <div class="step">
+                            <div class="step-number">3</div>
+                            <div class="step-content">
+                                <h3>Calculate Profitability</h3>
+                                <p>See if the numbers work for your investment</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- File Upload Section -->
+            <section class="upload-section">
+                <div class="card">
+                    <h2><i class="fas fa-upload"></i> Upload Property Data</h2>
+                    <p>Upload a CSV file exported from Zillow or Realtor.com with property listings.</p>
+                    
+                    <div class="upload-area" id="uploadArea">
+                        <div class="upload-content">
+                            <i class="fas fa-cloud-upload-alt"></i>
+                            <h3>Drag & Drop your CSV file here</h3>
+                            <p>or <button class="btn-link" onclick="document.getElementById('fileInput').click()">browse files</button></p>
+                            <input type="file" id="fileInput" accept=".csv" style="display: none;">
+                        </div>
+                    </div>
+                    
+                    <div class="file-info" id="fileInfo" style="display: none;">
+                        <div class="file-details">
+                            <i class="fas fa-file-csv"></i>
+                            <span id="fileName"></span>
+                            <button class="btn-remove" onclick="removeFile()">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Analysis Configuration -->
+            <section class="config-section">
+                <div class="card">
+                    <h2><i class="fas fa-cogs"></i> Analysis Configuration</h2>
+                    <div class="config-grid">
+                        <div class="config-item">
+                            <label for="maxPrice">Maximum Purchase Price ($)</label>
+                            <input type="number" id="maxPrice" class="input-field" value="500000" placeholder="500000">
+                        </div>
+                        <div class="config-item">
+                            <label for="minLotSize">Minimum Lot Size (sq ft)</label>
+                            <input type="number" id="minLotSize" class="input-field" value="7000" placeholder="7000">
+                        </div>
+                        <div class="config-item">
+                            <label for="targetProfit">Target Profit Margin (%)</label>
+                            <input type="number" id="targetProfit" class="input-field" value="20" placeholder="20">
+                        </div>
+                        <div class="config-item">
+                            <label for="renovationBudget">Renovation Budget ($)</label>
+                            <input type="number" id="renovationBudget" class="input-field" value="100000" placeholder="100000">
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Austin Zoning Rules -->
+            <section class="zoning-section">
+                <div class="card">
+                    <h2><i class="fas fa-map"></i> Austin Zoning Quick Reference</h2>
+                    <div class="zoning-grid">
+                        <div class="zoning-item">
+                            <h3>SF-2 (Single Family)</h3>
+                            <ul>
+                                <li>Min lot size: 5,750 sq ft</li>
+                                <li>Front setback: 25 ft</li>
+                                <li>Side setback: 5 ft</li>
+                                <li>Max height: 40 ft</li>
+                            </ul>
+                        </div>
+                        <div class="zoning-item">
+                            <h3>SF-3 (Single Family)</h3>
+                            <ul>
+                                <li>Min lot size: 7,000 sq ft</li>
+                                <li>Front setback: 25 ft</li>
+                                <li>Side setback: 7.5 ft</li>
+                                <li>Max height: 40 ft</li>
+                            </ul>
+                        </div>
+                        <div class="zoning-item">
+                            <h3>SF-4A (Single Family)</h3>
+                            <ul>
+                                <li>Min lot size: 8,500 sq ft</li>
+                                <li>Front setback: 25 ft</li>
+                                <li>Side setback: 10 ft</li>
+                                <li>Max height: 40 ft</li>
+                            </ul>
+                        </div>
+                    </div>
+                    <p class="zoning-note">
+                        <i class="fas fa-info-circle"></i>
+                        These are general guidelines. Always verify current zoning with the City of Austin before making investment decisions.
+                    </p>
+                </div>
+            </section>
+
+            <!-- Results Section -->
+            <section class="results-section" id="resultsSection" style="display: none;">
+                <div class="card">
+                    <h2><i class="fas fa-chart-line"></i> Analysis Results</h2>
+                    <div id="resultsContent">
+                        <!-- Results will be populated here -->
+                    </div>
+                </div>
+            </section>
+
+            <!-- Action Buttons -->
+            <section class="actions-section">
+                <div class="card">
+                    <div class="actions">
+                        <button class="btn-primary" onclick="analyzeProperties()" id="analyzeBtn" disabled>
+                            <i class="fas fa-search"></i> Analyze Properties
+                        </button>
+                        <button class="btn-secondary" onclick="exportResults()" id="exportBtn" disabled>
+                            <i class="fas fa-download"></i> Export Results
+                        </button>
+                        <button class="btn-secondary" onclick="clearAll()">
+                            <i class="fas fa-refresh"></i> Start Over
+                        </button>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2024 Austin Lot Analyzer - Real Estate Mentor Program</p>
+            <p>Built with ❤️ for learning real estate development</p>
+        </div>
+    </footer>
+
+    <script src="script.js"></script>
+</body>
+</html> 

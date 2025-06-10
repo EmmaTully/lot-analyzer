@@ -1,0 +1,11 @@
+Address,Price,Lot Size,Zoning,Bedrooms,Bathrooms,Square Feet
+"1234 Oak Street, Austin TX 78704",450000,8500,SF-3,3,2,1800
+"5678 Elm Avenue, Austin TX 78745",520000,12000,SF-4A,4,3,2200
+"9012 Pine Road, Austin TX 78702",380000,7200,SF-3,2,2,1500
+"3456 Cedar Lane, Austin TX 78751",600000,15000,SF-5,5,4,3000
+"7890 Maple Drive, Austin TX 78723",420000,9500,SF-3,3,2,1900
+"2468 Birch Court, Austin TX 78704",480000,11000,SF-4A,4,3,2100
+"1357 Willow Way, Austin TX 78745",350000,6800,SF-2,2,1,1200
+"8024 Pecan Street, Austin TX 78702",550000,13500,SF-4A,4,3,2400
+"4680 Hickory Hill, Austin TX 78751",390000,8200,SF-3,3,2,1700
+"1122 Magnolia Lane, Austin TX 78723",470000,10500,SF-3,3,3,2000 
