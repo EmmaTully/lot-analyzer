@@ -49,6 +49,11 @@ function setupFileUpload() {
     // File input change
     csvFile.addEventListener('change', handleFileSelect);
     
+    // Click to upload
+    uploadZone.addEventListener('click', () => {
+        csvFile.click();
+    });
+    
     // Drag and drop
     uploadZone.addEventListener('dragover', handleDragOver);
     uploadZone.addEventListener('drop', handleDrop);
@@ -70,7 +75,10 @@ function handleDragEnter(e) {
 function handleDragLeave(e) {
     e.preventDefault();
     e.stopPropagation();
-    document.getElementById('uploadZone').classList.remove('drag-over');
+    // Only remove drag-over if we're actually leaving the upload zone
+    if (!e.currentTarget.contains(e.relatedTarget)) {
+        document.getElementById('uploadZone').classList.remove('drag-over');
+    }
 }
 
 function handleDrop(e) {
