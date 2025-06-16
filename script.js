@@ -38,6 +38,7 @@ let analysisResults = null;
 
 // Initialize the application
 document.addEventListener('DOMContentLoaded', function() {
+    console.log('Austin Lot Analyzer v2.0 - Show All Properties');
     setupFileUpload();
 });
 
