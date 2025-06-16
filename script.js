@@ -837,9 +837,11 @@ function performRealAustinZoningAnalysis(property, lotDimensions) {
     };
     
     // 1. Basic Size Requirements
-    const minSizeForTwoLots = zoningRules.minLotSize * 2.2; // Add 20% buffer for easements
+    // Austin typically requires exactly 2x minimum lot size for subdivision
+    // Additional space for utilities comes from the lot itself
+    const minSizeForTwoLots = zoningRules.minLotSize * 2; // Exactly 2 minimum lots
     if (property.lotSize < minSizeForTwoLots) {
-        analysis.reasons.push(`Lot too small: ${property.lotSize.toLocaleString()} sq ft < ${minSizeForTwoLots.toLocaleString()} sq ft required`);
+        analysis.reasons.push(`Lot too small: ${property.lotSize.toLocaleString()} sq ft < ${minSizeForTwoLots.toLocaleString()} sq ft required (need ${zoningRules.minLotSize.toLocaleString()} sq ft × 2 lots)`);
         return analysis;
     }
     
@@ -875,8 +877,10 @@ function performRealAustinZoningAnalysis(property, lotDimensions) {
         analysis.canSplit = true;
         
         // More realistic lot calculation
-        const usableLotSize = property.lotSize * 0.85; // 15% lost to easements, setbacks
-        const newLotSize = Math.floor((usableLotSize - zoningRules.minLotSize) * 0.9);
+        // Typically you keep one lot at minimum size and make the other lot with remaining space
+        // Account for ~5% loss to utilities and easements
+        const totalUsableArea = property.lotSize * 0.95; // 5% for utilities/easements
+        const newLotSize = Math.floor(totalUsableArea - zoningRules.minLotSize);
         const buildableArea = calculateRealBuildableArea(newLotSize, zoningRules);
         
         analysis.splitResults = {
