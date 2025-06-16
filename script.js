@@ -586,6 +586,11 @@ function generateResultsTable(results) {
         const splitData = result.realZoningAnalysis.splitResults;
         const canSplit = result.canSplit;
         
+        // Current house size
+        const currentHouseSize = result.squareFeet > 0 ? 
+            `${result.squareFeet.toLocaleString()} sq ft` : 
+            'No data';
+        
         // Calculate potential buildable square footage
         const lot1BuildableSqFt = canSplit && splitData ? 
             Math.floor(calculateRealBuildableArea(result.realZoningAnalysis.zoningRules.minLotSize, result.realZoningAnalysis.zoningRules) * 0.6).toLocaleString() : 
@@ -598,6 +603,11 @@ function generateResultsTable(results) {
         const newLotSize = canSplit && splitData ? 
             `${result.realZoningAnalysis.zoningRules.minLotSize.toLocaleString()} + ${splitData.newLotSize.toLocaleString()}` : 
             'Cannot split';
+        
+        // Max build display
+        const maxBuildDisplay = canSplit ? 
+            `${lot1BuildableSqFt} / ${lot2BuildableSqFt}` : 
+            'N/A';
         
         // Status based on split ability
         let statusIcon = canSplit ? '✓' : '✗';
@@ -613,8 +623,9 @@ function generateResultsTable(results) {
                 </td>
                 <td class="price-cell">$${result.price.toLocaleString()}</td>
                 <td class="size-cell">${result.lotSize.toLocaleString()}</td>
+                <td class="current-house-cell">${currentHouseSize}</td>
                 <td class="split-size-cell">${newLotSize}</td>
-                <td class="buildable-cell">${lot1BuildableSqFt} / ${lot2BuildableSqFt}</td>
+                <td class="buildable-cell">${maxBuildDisplay}</td>
                 <td class="status-cell-minimal">
                     <span class="status-icon ${statusClass}" onclick="showPropertyDetails(${index})">
                         ${statusIcon}
@@ -631,8 +642,9 @@ function generateResultsTable(results) {
                     <th>Property</th>
                     <th>Price</th>
                     <th>Lot Size</th>
+                    <th>Current House</th>
                     <th>After Split</th>
-                    <th>Max Build</th>
+                    <th>Max Build (Lot 1 / Lot 2)</th>
                     <th class="split-header">Split</th>
                 </tr>
             </thead>

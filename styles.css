@@ -808,9 +808,14 @@ body {
     color: #111827;
 }
 
-.size-cell, .split-size-cell, .buildable-cell {
+.size-cell, .split-size-cell, .buildable-cell, .current-house-cell {
     font-size: 13px;
     color: #4b5563;
+}
+
+.current-house-cell {
+    font-style: italic;
+    color: #6b7280;
 }
 
 .split-size-cell {
@@ -875,7 +880,7 @@ body {
     background-color: #fafafa;
 }
 
-/* Units styling */
+/* Units styling - only for lot size column (now column 3) */
 .results-table.minimal td:nth-child(3)::after {
     content: ' sq ft';
     color: #9ca3af;
@@ -883,6 +888,7 @@ body {
 }
 
 /* Remove unit suffix for cells that already have custom formatting */
+.results-table.minimal .current-house-cell::after,
 .results-table.minimal .split-size-cell::after,
 .results-table.minimal .buildable-cell::after {
     content: '';
