@@ -600,43 +600,40 @@ function generateResultsTable(results) {
             'Cannot split';
         
         // Status based on split ability
-        let statusText = canSplit ? 'Can Split' : 'Cannot Split';
-        let detailsButton = `<button class="btn-details" onclick="showPropertyDetails(${index})">${canSplit ? 'Details' : 'Why?'}</button>`;
+        let statusIcon = canSplit ? '✓' : '✗';
+        let statusClass = canSplit ? 'can-split' : 'cannot-split';
         
         return `
             <tr class="${canSplit ? 'viable-property' : 'non-viable-property'}">
                 <td>
                     <div class="address-cell">
                         ${result.address}
-                        <div class="zoning-info">${result.zoning} - ${result.realZoningAnalysis.zoningRules.description}</div>
+                        <div class="zoning-info">${result.zoning}</div>
                     </div>
                 </td>
-                <td>$${result.price.toLocaleString()}</td>
-                <td>${result.lotSize.toLocaleString()} sq ft</td>
-                <td>${newLotSize}</td>
-                <td>${lot1BuildableSqFt} / ${lot2BuildableSqFt}</td>
-                <td>
-                    <div class="status-cell">
-                        <span class="status-badge status-${canSplit ? 'good' : 'poor'}">
-                            ${statusText}
-                        </span>
-                        ${detailsButton}
-                    </div>
+                <td class="price-cell">$${result.price.toLocaleString()}</td>
+                <td class="size-cell">${result.lotSize.toLocaleString()}</td>
+                <td class="split-size-cell">${newLotSize}</td>
+                <td class="buildable-cell">${lot1BuildableSqFt} / ${lot2BuildableSqFt}</td>
+                <td class="status-cell-minimal">
+                    <span class="status-icon ${statusClass}" onclick="showPropertyDetails(${index})">
+                        ${statusIcon}
+                    </span>
                 </td>
             </tr>
         `;
     }).join('');
     
     return `
-        <table class="results-table">
+        <table class="results-table minimal">
             <thead>
                 <tr>
-                    <th>Address & Zoning</th>
+                    <th>Property</th>
                     <th>Price</th>
-                    <th>Original Lot Size</th>
-                    <th>After Split (Lot 1 + Lot 2)</th>
-                    <th>Max House Size (Lot 1 / Lot 2)</th>
-                    <th>Split Analysis</th>
+                    <th>Lot Size</th>
+                    <th>After Split</th>
+                    <th>Max Build</th>
+                    <th class="split-header">Split</th>
                 </tr>
             </thead>
             <tbody>
