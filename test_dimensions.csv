@@ -1,0 +1,6 @@
+Address,Price,Lot Size,Zoning,Bedrooms,Bathrooms,Square Feet,Year Built,Lot Dimensions
+"123 Test St, Austin, TX 78701",500000,10000,SF-3,3,2,2000,1990,"100x100"
+"456 Demo Ave, Austin, TX 78702",600000,15000,SF-3,4,3,2500,1985,"150 x 100"
+"789 Sample Rd, Austin, TX 78703",700000,20000,SF-2,5,4,3000,2000,"200' x 100'"
+"321 Width St, Austin, TX 78704",550000,12000,SF-3,3,2.5,2200,1995,
+"654 Depth Ave, Austin, TX 78705",650000,18000,SF-2,4,3.5,2800,1998,"120 X 150" 

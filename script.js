@@ -251,6 +251,7 @@ function parseCSV(csvData) {
                 address: extractAddressMLS(property),
                 price: extractPriceMLS(property),
                 lotSize: extractLotSizeMLS(property),
+                lotDimensions: extractLotDimensions(property),
                 zoning: extractZoningMLS(property),
                 bedrooms: parseInt(property['# beds']) || 0,
                 bathrooms: parseFloat(property['# full baths']) || 0,
@@ -263,6 +264,7 @@ function parseCSV(csvData) {
                 address: extractAddress(property),
                 price: extractPrice(property),
                 lotSize: extractLotSize(property),
+                lotDimensions: extractLotDimensions(property),
                 zoning: extractZoning(property),
                 bedrooms: parseInt(property.bedrooms) || 0,
                 bathrooms: parseFloat(property.bathrooms) || 0,
@@ -374,7 +376,7 @@ function analyzeSingleProperty(property, config) {
     }
     
     // Calculate lot split potential using REAL Austin zoning analysis
-    const realZoningAnalysis = performRealAustinZoningAnalysis(property);
+    const realZoningAnalysis = performRealAustinZoningAnalysis(property, property.lotDimensions);
     const splitAnalysis = calculateLotSplitPotential(lotSize, zoning); // Keep for compatibility
     
     // Calculate financial viability (even if can't split)
@@ -472,6 +474,52 @@ function extractSquareFeet(property) {
         }
     }
     return 0;
+}
+
+// Extract lot dimensions from property data
+function extractLotDimensions(property) {
+    // Check for explicit dimension fields
+    if (property['lot width'] && property['lot depth']) {
+        return {
+            width: parseFloat(property['lot width']),
+            depth: parseFloat(property['lot depth']),
+            source: 'explicit'
+        };
+    }
+    
+    // Look for dimensions in description or lot size fields
+    const fieldsToCheck = [
+        'lot dimensions', 'dimensions', 'lot size', 'lot description', 
+        'description', 'remarks', 'property description'
+    ];
+    
+    for (const field of fieldsToCheck) {
+        if (property[field]) {
+            // Match patterns like "100x150", "100 x 150", "100'x150'", "100 X 150"
+            const dimPattern = /(\d+\.?\d*)\s*[\'']?\s*[xX]\s*(\d+\.?\d*)\s*[\'']?/;
+            const match = property[field].toString().match(dimPattern);
+            
+            if (match) {
+                const width = parseFloat(match[1]);
+                const depth = parseFloat(match[2]);
+                
+                // Verify dimensions make sense (multiply to roughly equal lot size)
+                const calculatedSize = width * depth;
+                const actualSize = property.lotSize || extractLotSize(property);
+                const tolerance = 0.2; // 20% tolerance
+                
+                if (actualSize && Math.abs(calculatedSize - actualSize) / actualSize <= tolerance) {
+                    return {
+                        width: width,
+                        depth: depth,
+                        source: 'parsed'
+                    };
+                }
+            }
+        }
+    }
+    
+    return null;
 }
 
 // MLS-specific extraction functions
@@ -701,7 +749,7 @@ function generateResultsTable(results) {
         
         // Calculate potential buildable square footage
         const lot1BuildableSqFt = canSplit && splitData ? 
-            Math.floor(calculateRealBuildableArea(result.realZoningAnalysis.zoningRules.minLotSize, result.realZoningAnalysis.zoningRules) * 0.6).toLocaleString() : 
+            Math.floor(calculateRealBuildableArea(result.realZoningAnalysis.zoningRules.minLotSize, result.realZoningAnalysis.zoningRules, result.realZoningAnalysis.lotDimensions) * 0.6).toLocaleString() : 
             'N/A';
         const lot2BuildableSqFt = canSplit && splitData ? 
             splitData.maxHouseSize.toLocaleString() : 
@@ -786,6 +834,10 @@ function showPropertyDetails(index) {
                 <h3>📋 Austin Zoning Analysis</h3>
                 <p><strong>Zoning:</strong> ${result.zoning} - ${result.realZoningAnalysis.zoningRules.description}</p>
                 <p><strong>Lot Size:</strong> ${result.lotSize.toLocaleString()} sq ft</p>
+                ${result.realZoningAnalysis.lotDimensions ? `
+                <p><strong>Lot Dimensions:</strong> ${result.realZoningAnalysis.lotDimensions.width.toFixed(0)}' × ${result.realZoningAnalysis.lotDimensions.depth.toFixed(0)}' 
+                    <span style="color: #666; font-size: 0.9em;">(${result.realZoningAnalysis.lotDimensions.source})</span></p>
+                ` : ''}
                 <p><strong>Can Split:</strong> ${result.canSplit ? '✅ Yes' : '❌ No'}</p>
     `;
     
@@ -817,8 +869,8 @@ function showPropertyDetails(index) {
                     </div>` : ''}
                     
                     <h5>Buildable Area Analysis:</h5>
-                    <p><strong>Lot 1 Buildable Area:</strong> ${Math.floor(calculateRealBuildableArea(zoningRules.minLotSize, zoningRules)).toLocaleString()} sq ft</p>
-                    <p><strong>Lot 1 Max House Size:</strong> ${Math.floor(calculateRealBuildableArea(zoningRules.minLotSize, zoningRules) * 0.6).toLocaleString()} sq ft (60% coverage)</p>
+                    <p><strong>Lot 1 Buildable Area:</strong> ${Math.floor(calculateRealBuildableArea(zoningRules.minLotSize, zoningRules, result.realZoningAnalysis.lotDimensions)).toLocaleString()} sq ft</p>
+                    <p><strong>Lot 1 Max House Size:</strong> ${Math.floor(calculateRealBuildableArea(zoningRules.minLotSize, zoningRules, result.realZoningAnalysis.lotDimensions) * 0.6).toLocaleString()} sq ft (60% coverage)</p>
                     <p><strong>Lot 2 Buildable Area:</strong> ${split.buildableArea.toLocaleString()} sq ft</p>
                     <p><strong>Lot 2 Max House Size:</strong> ${split.maxHouseSize.toLocaleString()} sq ft (60% coverage)</p>
                     
@@ -967,18 +1019,31 @@ function performRealAustinZoningAnalysis(property, lotDimensions) {
     }
     
     // 2. Width Requirements (Critical for Austin)
-    const estimatedWidth = Math.sqrt(property.lotSize * 1.5); // Assume 1.5:1 depth ratio
+    let actualWidth;
+    let widthSource = 'estimated';
+    
+    if (lotDimensions && lotDimensions.width) {
+        actualWidth = lotDimensions.width;
+        widthSource = lotDimensions.source;
+    } else {
+        // Estimate if no dimensions provided
+        actualWidth = Math.sqrt(property.lotSize * 1.5); // Assume 1.5:1 depth ratio
+    }
+    
     const minWidthForTwoLots = zoningRules.minLotWidth * 2 + 10; // 10ft between lots
-    if (estimatedWidth < minWidthForTwoLots) {
-        analysis.reasons.push(`Insufficient width: Est. ${estimatedWidth.toFixed(0)}ft < ${minWidthForTwoLots}ft required`);
+    if (actualWidth < minWidthForTwoLots) {
+        analysis.reasons.push(`Insufficient width: ${widthSource === 'estimated' ? 'Est. ' : ''}${actualWidth.toFixed(0)}ft < ${minWidthForTwoLots}ft required`);
         return analysis;
     }
     
     // 3. Street Frontage Check
-    if (estimatedWidth < austinSubdivisionRules.minStreetFrontage * 2) {
+    if (actualWidth < austinSubdivisionRules.minStreetFrontage * 2) {
         analysis.reasons.push(`Insufficient street frontage for two lots`);
         return analysis;
     }
+    
+    // Store dimensions info for later use
+    analysis.lotDimensions = lotDimensions || { width: actualWidth, depth: property.lotSize / actualWidth, source: 'estimated' };
     
     // 4. Utility Access Analysis
     const utilityAnalysis = analyzeUtilityAccess(property);
@@ -1003,7 +1068,7 @@ function performRealAustinZoningAnalysis(property, lotDimensions) {
         
         // For now, still calculate as 2-lot split (can be enhanced later for multi-splits)
         const newLotSize = Math.floor(totalUsableArea - zoningRules.minLotSize);
-        const buildableArea = calculateRealBuildableArea(newLotSize, zoningRules);
+        const buildableArea = calculateRealBuildableArea(newLotSize, zoningRules, analysis.lotDimensions);
         
         analysis.splitResults = {
             originalLotSize: property.lotSize,
@@ -1095,14 +1160,23 @@ function analyzeDrainageRequirements(property) {
     };
 }
 
-function calculateRealBuildableArea(lotSize, zoningRules) {
+function calculateRealBuildableArea(lotSize, zoningRules, dimensions) {
     // More realistic buildable area calculation
-    const assumedWidth = Math.sqrt(lotSize * 1.2); // Assume 1.2:1 ratio
-    const assumedDepth = lotSize / assumedWidth;
+    let width, depth;
+    
+    if (dimensions && dimensions.width && dimensions.depth) {
+        // Use actual dimensions if available
+        width = dimensions.width;
+        depth = dimensions.depth;
+    } else {
+        // Estimate if not available
+        width = Math.sqrt(lotSize * 1.2); // Assume 1.2:1 ratio
+        depth = lotSize / width;
+    }
     
     // Account for all setbacks
-    const buildableWidth = Math.max(0, assumedWidth - (2 * zoningRules.sideSetback));
-    const buildableDepth = Math.max(0, assumedDepth - zoningRules.frontSetback - zoningRules.rearSetback);
+    const buildableWidth = Math.max(0, width - (2 * zoningRules.sideSetback));
+    const buildableDepth = Math.max(0, depth - zoningRules.frontSetback - zoningRules.rearSetback);
     
     const grossBuildableArea = buildableWidth * buildableDepth;
     
