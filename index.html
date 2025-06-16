@@ -95,70 +95,13 @@
                 </div>
             </section>
 
-            <!-- Analysis Configuration -->
-            <section class="config-section">
-                <div class="card">
-                    <h2><i class="fas fa-cogs"></i> Analysis Configuration</h2>
-                    <div class="config-grid">
-                        <div class="config-item">
-                            <label for="maxPrice">Maximum Purchase Price ($)</label>
-                            <input type="number" id="maxPrice" class="input-field" value="900000" placeholder="900000">
-                        </div>
-                        <div class="config-item">
-                            <label for="minLotSize">Minimum Lot Size (sq ft)</label>
-                            <input type="number" id="minLotSize" class="input-field" value="11500" placeholder="11500">
-                        </div>
-                        <div class="config-item">
-                            <label for="targetProfit">Target Profit Margin (%)</label>
-                            <input type="number" id="targetProfit" class="input-field" value="20" placeholder="20">
-                        </div>
-                        <div class="config-item">
-                            <label for="renovationBudget">Renovation Budget ($)</label>
-                            <input type="number" id="renovationBudget" class="input-field" value="100000" placeholder="100000">
-                        </div>
-                    </div>
-                </div>
-            </section>
-
-            <!-- Austin Zoning Rules -->
-            <section class="zoning-section">
-                <div class="card">
-                    <h2><i class="fas fa-map"></i> Austin Zoning Quick Reference</h2>
-                    <div class="zoning-grid">
-                        <div class="zoning-item">
-                            <h3>SF-2 (Single Family)</h3>
-                            <ul>
-                                <li>Min lot size: 5,750 sq ft</li>
-                                <li>Front setback: 25 ft</li>
-                                <li>Side setback: 5 ft</li>
-                                <li>Max height: 40 ft</li>
-                            </ul>
-                        </div>
-                        <div class="zoning-item">
-                            <h3>SF-3 (Single Family)</h3>
-                            <ul>
-                                <li>Min lot size: 7,000 sq ft</li>
-                                <li>Front setback: 25 ft</li>
-                                <li>Side setback: 7.5 ft</li>
-                                <li>Max height: 40 ft</li>
-                            </ul>
-                        </div>
-                        <div class="zoning-item">
-                            <h3>SF-4A (Single Family)</h3>
-                            <ul>
-                                <li>Min lot size: 8,500 sq ft</li>
-                                <li>Front setback: 25 ft</li>
-                                <li>Side setback: 10 ft</li>
-                                <li>Max height: 40 ft</li>
-                            </ul>
-                        </div>
-                    </div>
-                    <p class="zoning-note">
-                        <i class="fas fa-info-circle"></i>
-                        These are general guidelines. Always verify current zoning with the City of Austin before making investment decisions.
-                    </p>
-                </div>
-            </section>
+            <!-- Hidden Configuration (needed for JavaScript) -->
+            <div style="display: none;">
+                <input type="number" id="maxPrice" value="900000">
+                <input type="number" id="minLotSize" value="11500">
+                <input type="number" id="targetProfit" value="20">
+                <input type="number" id="renovationBudget" value="100000">
+            </div>
 
             <!-- Results Section -->
             <section class="results-section" id="resultsSection" style="display: none;">
