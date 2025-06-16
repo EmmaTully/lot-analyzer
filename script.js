@@ -231,6 +231,9 @@ function parseCSV(csvData) {
     const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, '').toLowerCase());
     const properties = [];
     
+    // Check if this is an MLS export
+    const isMLS = headers.includes('acres') || headers.includes('# beds') || headers.includes('listing id');
+    
     for (let i = 1; i < lines.length; i++) {
         const values = parseCSVLine(lines[i]);
         if (values.length !== headers.length) continue;
@@ -241,18 +244,34 @@ function parseCSV(csvData) {
         });
         
         // Convert to standard format
-        const standardProperty = {
-            address: extractAddress(property),
-            price: extractPrice(property),
-            lotSize: extractLotSize(property),
-            zoning: extractZoning(property),
-            bedrooms: parseInt(property.bedrooms) || 0,
-            bathrooms: parseFloat(property.bathrooms) || 0,
-            squareFeet: parseInt(property['square feet']) || 0,
-            yearBuilt: parseInt(property['year built']) || 0
-        };
+        let standardProperty;
+        if (isMLS) {
+            // Handle MLS format
+            standardProperty = {
+                address: extractAddressMLS(property),
+                price: extractPriceMLS(property),
+                lotSize: extractLotSizeMLS(property),
+                zoning: extractZoningMLS(property),
+                bedrooms: parseInt(property['# beds']) || 0,
+                bathrooms: parseFloat(property['# full baths']) || 0,
+                squareFeet: extractSquareFeetMLS(property),
+                yearBuilt: parseInt(property['year built']) || 0
+            };
+        } else {
+            // Handle standard format (Zillow/Realtor)
+            standardProperty = {
+                address: extractAddress(property),
+                price: extractPrice(property),
+                lotSize: extractLotSize(property),
+                zoning: extractZoning(property),
+                bedrooms: parseInt(property.bedrooms) || 0,
+                bathrooms: parseFloat(property.bathrooms) || 0,
+                squareFeet: extractSquareFeet(property),
+                yearBuilt: parseInt(property['year built']) || 0
+            };
+        }
         
-        if (standardProperty.address && standardProperty.price && standardProperty.lotSize) {
+        if (standardProperty.address && standardProperty.lotSize) {
             properties.push(standardProperty);
         }
     }
@@ -434,6 +453,83 @@ function extractZoning(property) {
     }
     // Default to SF-3 if no zoning info
     return 'SF-3';
+}
+
+function extractSquareFeet(property) {
+    const sqftFields = ['square feet', 'sqft', 'living area', 'living sqft'];
+    for (const field of sqftFields) {
+        if (property[field]) {
+            const sqft = parseInt(property[field].toString().replace(/[,\s]/g, ''));
+            if (!isNaN(sqft)) return sqft;
+        }
+    }
+    return 0;
+}
+
+// MLS-specific extraction functions
+function extractAddressMLS(property) {
+    // MLS format typically has address in "Address" column
+    if (property.address) {
+        // Add Austin, TX if not present
+        let addr = property.address.toString().replace(/"/g, '');
+        if (!addr.toLowerCase().includes('austin') && !addr.toLowerCase().includes('tx')) {
+            addr += ', Austin, TX';
+        }
+        return addr;
+    }
+    return 'Address not available';
+}
+
+function extractPriceMLS(property) {
+    // MLS uses "List Price" or "Close Price"
+    const priceFields = ['list price', 'close price', 'price'];
+    for (const field of priceFields) {
+        if (property[field]) {
+            const price = parseFloat(property[field].toString().replace(/[$,]/g, ''));
+            if (!isNaN(price)) return price;
+        }
+    }
+    return 0;
+}
+
+function extractLotSizeMLS(property) {
+    // MLS uses "Acres" - need to convert to sq ft
+    if (property.acres) {
+        const acres = parseFloat(property.acres.toString().replace(/[,\s]/g, ''));
+        if (!isNaN(acres)) {
+            return Math.round(acres * 43560); // Convert acres to sq ft
+        }
+    }
+    return null;
+}
+
+function extractZoningMLS(property) {
+    // MLS might not have zoning, estimate from lot size
+    if (property.zoning) {
+        return property.zoning.toString().toUpperCase();
+    }
+    
+    // Estimate based on lot size (acres)
+    if (property.acres) {
+        const acres = parseFloat(property.acres.toString().replace(/[,\s]/g, ''));
+        if (acres >= 1) return 'SF-1';
+        if (acres >= 0.287) return 'SF-6'; // 12,500 sq ft
+        if (acres >= 0.23) return 'SF-5';  // 10,000 sq ft
+        if (acres >= 0.195) return 'SF-4A'; // 8,500 sq ft
+        if (acres >= 0.161) return 'SF-3';  // 7,000 sq ft
+        if (acres >= 0.132) return 'SF-2';  // 5,750 sq ft
+    }
+    
+    return 'SF-3'; // Default
+}
+
+function extractSquareFeetMLS(property) {
+    // MLS uses "SqFt" column
+    if (property.sqft) {
+        const sqft = parseInt(property.sqft.toString().replace(/[,\s]/g, ''));
+        if (!isNaN(sqft)) return sqft;
+    }
+    return 0;
 }
 
 function calculateLotSplitPotential(lotSize, zoning) {
