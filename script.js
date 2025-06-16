@@ -396,6 +396,7 @@ function analyzeSingleProperty(property, config) {
         price: price,
         lotSize: lotSize,
         zoning: zoning,
+        squareFeet: property.squareFeet, // Add square feet to results
         splitAnalysis: splitAnalysis,
         realZoningAnalysis: realZoningAnalysis, // Add real Austin analysis
         financialAnalysis: financialAnalysis,
@@ -416,7 +417,9 @@ function extractPrice(property) {
     const priceFields = ['price', 'list price', 'asking price', 'sale price'];
     for (const field of priceFields) {
         if (property[field]) {
-            const price = parseFloat(property[field].toString().replace(/[$,]/g, ''));
+            // Remove quotes, dollar signs, and commas
+            const cleanValue = property[field].toString().replace(/["'$,]/g, '').trim();
+            const price = parseFloat(cleanValue);
             if (!isNaN(price)) return price;
         }
     }
@@ -427,7 +430,9 @@ function extractLotSize(property) {
     const lotFields = ['lot size', 'lot size sqft', 'lot sq ft', 'lot area', 'land area'];
     for (const field of lotFields) {
         if (property[field]) {
-            const size = parseFloat(property[field].toString().replace(/[,\s]/g, ''));
+            // Remove quotes, commas, and extra spaces
+            const cleanValue = property[field].toString().replace(/["',]/g, '').trim();
+            const size = parseFloat(cleanValue);
             if (!isNaN(size)) return size;
         }
     }
@@ -459,7 +464,9 @@ function extractSquareFeet(property) {
     const sqftFields = ['square feet', 'sqft', 'living area', 'living sqft'];
     for (const field of sqftFields) {
         if (property[field]) {
-            const sqft = parseInt(property[field].toString().replace(/[,\s]/g, ''));
+            // Remove quotes, commas, and extra spaces
+            const cleanValue = property[field].toString().replace(/["',]/g, '').trim();
+            const sqft = parseInt(cleanValue);
             if (!isNaN(sqft)) return sqft;
         }
     }
