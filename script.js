@@ -403,6 +403,7 @@ function analyzeSingleProperty(property, config) {
         score: score,
         status: status,
         canSplit: realZoningAnalysis.canSplit, // Use real analysis
+        maxPotentialLots: realZoningAnalysis.splitResults ? realZoningAnalysis.splitResults.maxPotentialLots : 1, // Add max potential lots
         meetsPrice: price <= config.maxPrice,
         meetsSize: lotSize >= config.minLotSize,
         splitReasons: realZoningAnalysis.reasons,
@@ -694,6 +695,10 @@ function generateResultsTable(results) {
             `${result.squareFeet.toLocaleString()} sq ft` : 
             'No data';
         
+        // Maximum potential lots
+        const maxLots = result.maxPotentialLots || 1;
+        const maxLotsDisplay = maxLots > 2 ? `${maxLots} lots` : (canSplit ? '2 lots' : '1 lot');
+        
         // Calculate potential buildable square footage
         const lot1BuildableSqFt = canSplit && splitData ? 
             Math.floor(calculateRealBuildableArea(result.realZoningAnalysis.zoningRules.minLotSize, result.realZoningAnalysis.zoningRules) * 0.6).toLocaleString() : 
@@ -727,6 +732,7 @@ function generateResultsTable(results) {
                 <td class="price-cell">$${result.price.toLocaleString()}</td>
                 <td class="size-cell">${result.lotSize.toLocaleString()}</td>
                 <td class="current-house-cell">${currentHouseSize}</td>
+                <td class="max-lots-cell">${maxLotsDisplay}</td>
                 <td class="split-size-cell">${newLotSize}</td>
                 <td class="buildable-cell">${maxBuildDisplay}</td>
                 <td class="status-cell-minimal">
@@ -746,7 +752,8 @@ function generateResultsTable(results) {
                     <th>Price</th>
                     <th>Lot Size</th>
                     <th>Current House</th>
-                    <th>After Split</th>
+                    <th>Max Splits</th>
+                    <th>After Split (2 lots)</th>
                     <th>Max Build (Lot 1 / Lot 2)</th>
                     <th class="split-header">Split</th>
                 </tr>
@@ -799,9 +806,15 @@ function showPropertyDetails(index) {
         detailsHTML += `
                 <div class="split-results">
                     <h4>✅ Lot Split Analysis:</h4>
-                    <p><strong>Number of Lots After Split:</strong> 2 lots</p>
+                    <p><strong>Maximum Potential Lots:</strong> ${split.maxPotentialLots} lots (based on ${zoningRules.minLotSize.toLocaleString()} sq ft minimum)</p>
+                    <p><strong>Current Analysis (2-lot split):</strong></p>
                     <p><strong>Lot 1 Size:</strong> ${zoningRules.minLotSize.toLocaleString()} sq ft (minimum for ${result.zoning})</p>
                     <p><strong>Lot 2 Size:</strong> ${split.newLotSize.toLocaleString()} sq ft</p>
+                    ${split.maxPotentialLots > 2 ? `
+                    <div style="background: #f0f9ff; border: 1px solid #0ea5e9; padding: 10px; margin: 10px 0; border-radius: 5px;">
+                        <strong>💡 Note:</strong> This property could potentially be split into ${split.maxPotentialLots} lots. 
+                        Consider consulting with a developer or city planner for optimal subdivision strategy.
+                    </div>` : ''}
                     
                     <h5>Buildable Area Analysis:</h5>
                     <p><strong>Lot 1 Buildable Area:</strong> ${Math.floor(calculateRealBuildableArea(zoningRules.minLotSize, zoningRules)).toLocaleString()} sq ft</p>
@@ -984,10 +997,11 @@ function performRealAustinZoningAnalysis(property, lotDimensions) {
     if (analysis.reasons.length === 0) {
         analysis.canSplit = true;
         
-        // More realistic lot calculation
-        // Typically you keep one lot at minimum size and make the other lot with remaining space
-        // Account for ~5% loss to utilities and easements
+        // Calculate maximum number of potential splits
         const totalUsableArea = property.lotSize * 0.95; // 5% for utilities/easements
+        const maxPotentialLots = Math.floor(totalUsableArea / zoningRules.minLotSize);
+        
+        // For now, still calculate as 2-lot split (can be enhanced later for multi-splits)
         const newLotSize = Math.floor(totalUsableArea - zoningRules.minLotSize);
         const buildableArea = calculateRealBuildableArea(newLotSize, zoningRules);
         
@@ -997,7 +1011,8 @@ function performRealAustinZoningAnalysis(property, lotDimensions) {
             newLotSize: newLotSize,
             buildableArea: buildableArea,
             maxHouseSize: Math.floor(buildableArea * 0.6), // 60% lot coverage typical
-            estimatedUtilityCost: utilityAnalysis.estimatedCost
+            estimatedUtilityCost: utilityAnalysis.estimatedCost,
+            maxPotentialLots: maxPotentialLots // Add maximum potential lots
         };
         
         // Timeline and costs
