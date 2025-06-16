@@ -567,11 +567,11 @@ function displayResults(results) {
             </div>
         `;
     } else {
-        const viableCount = results.filter(r => r.canSplit && r.meetsPrice).length;
+        const viableCount = results.filter(r => r.canSplit).length;
         resultsContent.innerHTML = `
             <div style="margin-bottom: 20px;">
-                <h3>Analyzed ${results.length} properties - ${viableCount} with lot split potential!</h3>
-                <p>All properties are shown ranked by investment opportunity score. Look for "Good" or "Excellent" status.</p>
+                <h3>Austin Zoning Analysis: ${results.length} properties analyzed</h3>
+                <p><strong>${viableCount} properties can be split</strong> according to Austin city zoning codes. This analysis shows lot sizes and buildable square footage based on current zoning regulations.</p>
             </div>
             ${generateResultsTable(results)}
         `;
@@ -582,51 +582,47 @@ function displayResults(results) {
 
 function generateResultsTable(results) {
     const tableRows = results.map((result, index) => {
-        const newLotSize = result.canSplit && result.realZoningAnalysis.splitResults ? 
-            result.realZoningAnalysis.splitResults.newLotSize.toLocaleString() : 'Cannot split';
-        const profit = result.canSplit ? `$${Math.round(result.financialAnalysis.profit).toLocaleString()}` : 'N/A';
-        const profitMargin = result.canSplit ? `${result.financialAnalysis.profitMargin.toFixed(1)}%` : 'N/A';
+        // Get split analysis data
+        const splitData = result.realZoningAnalysis.splitResults;
+        const canSplit = result.canSplit;
         
-        // Show specific reasons why property can't be split
-        let statusText = result.status.charAt(0).toUpperCase() + result.status.slice(1);
-        let detailsButton = '';
+        // Calculate potential buildable square footage
+        const lot1BuildableSqFt = canSplit && splitData ? 
+            Math.floor(calculateRealBuildableArea(result.realZoningAnalysis.zoningRules.minLotSize, result.realZoningAnalysis.zoningRules) * 0.6).toLocaleString() : 
+            'N/A';
+        const lot2BuildableSqFt = canSplit && splitData ? 
+            splitData.maxHouseSize.toLocaleString() : 
+            'N/A';
         
-        if (!result.canSplit && result.splitReasons.length > 0) {
-            statusText = 'Cannot Split';
-            detailsButton = `<button class="btn-details" onclick="showPropertyDetails(${index})">Why?</button>`;
-        } else if (!result.meetsPrice) {
-            statusText += ' (Over Budget)';
-        } else if (result.canSplit) {
-            detailsButton = `<button class="btn-details" onclick="showPropertyDetails(${index})">Details</button>`;
-        }
+        // New lot sizes
+        const newLotSize = canSplit && splitData ? 
+            `${result.realZoningAnalysis.zoningRules.minLotSize.toLocaleString()} + ${splitData.newLotSize.toLocaleString()}` : 
+            'Cannot split';
         
-        // Calculate total subdivision costs
-        const totalCosts = result.estimatedCosts && result.estimatedCosts.total ? 
-            `$${result.estimatedCosts.total.toLocaleString()}` : 'N/A';
+        // Status based on split ability
+        let statusText = canSplit ? 'Can Split' : 'Cannot Split';
+        let detailsButton = `<button class="btn-details" onclick="showPropertyDetails(${index})">${canSplit ? 'Details' : 'Why?'}</button>`;
         
         return `
-            <tr class="${result.canSplit ? 'viable-property' : 'non-viable-property'}">
+            <tr class="${canSplit ? 'viable-property' : 'non-viable-property'}">
                 <td>
                     <div class="address-cell">
                         ${result.address}
-                        <div class="zoning-info">${result.zoning}</div>
+                        <div class="zoning-info">${result.zoning} - ${result.realZoningAnalysis.zoningRules.description}</div>
                     </div>
                 </td>
                 <td>$${result.price.toLocaleString()}</td>
                 <td>${result.lotSize.toLocaleString()} sq ft</td>
                 <td>${newLotSize}</td>
-                <td>${profit}</td>
-                <td>${profitMargin}</td>
-                <td>${totalCosts}</td>
+                <td>${lot1BuildableSqFt} / ${lot2BuildableSqFt}</td>
                 <td>
                     <div class="status-cell">
-                        <span class="status-badge status-${result.status}">
+                        <span class="status-badge status-${canSplit ? 'good' : 'poor'}">
                             ${statusText}
                         </span>
                         ${detailsButton}
                     </div>
                 </td>
-                <td>${result.score}/100</td>
             </tr>
         `;
     }).join('');
@@ -637,13 +633,10 @@ function generateResultsTable(results) {
                 <tr>
                     <th>Address & Zoning</th>
                     <th>Price</th>
-                    <th>Original Lot</th>
-                    <th>New Lot Size</th>
-                    <th>Est. Profit</th>
-                    <th>Profit Margin</th>
-                    <th>Subdivision Costs</th>
-                    <th>Status</th>
-                    <th>Score</th>
+                    <th>Original Lot Size</th>
+                    <th>After Split (Lot 1 + Lot 2)</th>
+                    <th>Max House Size (Lot 1 / Lot 2)</th>
+                    <th>Split Analysis</th>
                 </tr>
             </thead>
             <tbody>
@@ -690,12 +683,26 @@ function showPropertyDetails(index) {
     
     if (result.canSplit && result.realZoningAnalysis.splitResults) {
         const split = result.realZoningAnalysis.splitResults;
+        const zoningRules = result.realZoningAnalysis.zoningRules;
         detailsHTML += `
                 <div class="split-results">
                     <h4>✅ Lot Split Analysis:</h4>
-                    <p><strong>New Lot Size:</strong> ${split.newLotSize.toLocaleString()} sq ft</p>
-                    <p><strong>Buildable Area:</strong> ${split.buildableArea.toLocaleString()} sq ft</p>
-                    <p><strong>Max House Size:</strong> ${split.maxHouseSize.toLocaleString()} sq ft</p>
+                    <p><strong>Number of Lots After Split:</strong> 2 lots</p>
+                    <p><strong>Lot 1 Size:</strong> ${zoningRules.minLotSize.toLocaleString()} sq ft (minimum for ${result.zoning})</p>
+                    <p><strong>Lot 2 Size:</strong> ${split.newLotSize.toLocaleString()} sq ft</p>
+                    
+                    <h5>Buildable Area Analysis:</h5>
+                    <p><strong>Lot 1 Buildable Area:</strong> ${Math.floor(calculateRealBuildableArea(zoningRules.minLotSize, zoningRules)).toLocaleString()} sq ft</p>
+                    <p><strong>Lot 1 Max House Size:</strong> ${Math.floor(calculateRealBuildableArea(zoningRules.minLotSize, zoningRules) * 0.6).toLocaleString()} sq ft (60% coverage)</p>
+                    <p><strong>Lot 2 Buildable Area:</strong> ${split.buildableArea.toLocaleString()} sq ft</p>
+                    <p><strong>Lot 2 Max House Size:</strong> ${split.maxHouseSize.toLocaleString()} sq ft (60% coverage)</p>
+                    
+                    <h5>Setback Requirements (${result.zoning}):</h5>
+                    <p><strong>Front Setback:</strong> ${zoningRules.frontSetback} ft</p>
+                    <p><strong>Side Setback:</strong> ${zoningRules.sideSetback} ft each side</p>
+                    <p><strong>Rear Setback:</strong> ${zoningRules.rearSetback} ft</p>
+                    <p><strong>Max Height:</strong> ${zoningRules.maxHeight} ft</p>
+                    <p><strong>Max Impervious Cover:</strong> ${(zoningRules.maxImpervious * 100).toFixed(0)}%</p>
                 </div>
         `;
     }
@@ -711,18 +718,7 @@ function showPropertyDetails(index) {
         `;
     }
     
-    if (result.estimatedCosts && result.estimatedCosts.total) {
-        detailsHTML += `
-                <div class="costs-section">
-                    <h4>💰 Estimated Subdivision Costs:</h4>
-                    <p><strong>Platting:</strong> $${result.estimatedCosts.platting.toLocaleString()}</p>
-                    <p><strong>Utilities:</strong> $${result.estimatedCosts.utilities.toLocaleString()}</p>
-                    <p><strong>Surveying:</strong> $${result.estimatedCosts.surveying.toLocaleString()}</p>
-                    <p><strong>Permits:</strong> $${result.estimatedCosts.permits.toLocaleString()}</p>
-                    <p><strong>Total:</strong> $${result.estimatedCosts.total.toLocaleString()}</p>
-                </div>
-        `;
-    }
+
     
     if (result.timeline && result.timeline.totalMonths) {
         detailsHTML += `
