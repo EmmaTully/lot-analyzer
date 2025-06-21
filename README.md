@@ -133,6 +133,32 @@ Ideas for expanding the tool:
 
 This tool was built as part of a real estate mentorship program. For questions or suggestions, discuss with your mentor or real estate professionals.
 
+## Features
+
+- **Address Lookup**: Search individual Austin properties for instant analysis
+- **CSV Upload**: Analyze multiple properties at once from Zillow/Realtor exports
+- **Zoning Analysis**: Checks Austin zoning requirements (SF-1 through SF-6)
+- **Financial Calculations**: Estimates costs and potential profits
+- **Visual Plot Maps**: See lot dimensions and split possibilities
+
+## Data Sources
+
+The app uses real data when available:
+
+1. **Austin GIS Database**: When you search for an address, the app queries the official City of Austin GIS services for:
+   - Real parcel boundaries
+   - Actual lot sizes
+   - Current zoning information
+   - Property details
+
+2. **Demo Mode**: Type "demo" to see an example analysis with sample data
+
+3. **CSV Upload**: You provide your own property data from Zillow, Realtor.com, or other sources
+
+**Important**: The app will only show real property data from Austin GIS or clearly marked demo examples. It will not generate or estimate property values for addresses it cannot find.
+
+## Getting Started
+
 ---
 
 **Happy Investing! 🏡💰**
