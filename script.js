@@ -328,12 +328,9 @@ const propertyDataService = new PropertyDataService();
 // Austin GIS Service Integration
 class AustinGISService {
     constructor() {
-        // Austin's ArcGIS REST endpoints - updated with current services
+        // Austin's ArcGIS REST endpoints - using only verified endpoints
         this.endpoints = {
-            // Try multiple parcel services
             parcels: 'https://services.arcgis.com/0L95CJ0VTaxqcmED/ArcGIS/rest/services/ParcelSearchTable/FeatureServer/0',
-            landDatabase: 'https://services.arcgis.com/0L95CJ0VTaxqcmED/ArcGIS/rest/services/land_database_tcad_view/FeatureServer/0',
-            addressPoints: 'https://services.arcgis.com/0L95CJ0VTaxqcmED/ArcGIS/rest/services/Address_Points/FeatureServer/0',
             zoning: 'https://services.arcgis.com/0L95CJ0VTaxqcmED/ArcGIS/rest/services/ZONING_ORDINANCE/FeatureServer/0',
             historicDistricts: 'https://services.arcgis.com/0L95CJ0VTaxqcmED/ArcGIS/rest/services/HP_Districts/FeatureServer/0',
             trees: 'https://services.arcgis.com/0L95CJ0VTaxqcmED/ArcGIS/rest/services/ENVIRONMENTAL_HERITAGE_TREES/FeatureServer/0'
@@ -354,43 +351,41 @@ class AustinGISService {
                 .replace(/DRIVE/g, 'DR')
                 .replace(/LANE/g, 'LN')
                 .replace(/BOULEVARD/g, 'BLVD')
+                .replace(/COURT/g, 'CT')
+                .replace(/PLACE/g, 'PL')
+                .replace(/CIRCLE/g, 'CIR')
                 .trim();
             
-            // Extract just the street number and name for a more flexible search
-            const addressParts = searchAddress.match(/^(\d+)\s+(.+?)(?:\s+AUSTIN|\s+TX|\s+\d{5}|$)/);
-            let queryString = searchAddress;
+            console.log('Searching for address:', searchAddress);
             
-            if (addressParts) {
-                const streetNumber = addressParts[1];
-                const streetName = addressParts[2];
-                // Try searching with just street number and partial street name
-                queryString = `${streetNumber} ${streetName}`;
-            }
-            
-            console.log('Searching for address:', queryString);
-            
-            // Try different endpoints and query methods
+            // Try different query approaches with the ParcelSearchTable
             const searchStrategies = [
-                // Strategy 1: Try land database with SITUS_ADDRESS
+                // Strategy 1: Exact match on full address
                 async () => {
-                    const url = `${this.endpoints.landDatabase}/query?where=SITUS_ADDRESS LIKE '%${encodeURIComponent(queryString)}%'&outFields=*&f=json&resultRecordCount=10`;
+                    const url = `${this.endpoints.parcels}/query?where=FULL_STREET_NAME='${encodeURIComponent(searchAddress)}'&outFields=*&f=json`;
                     return await this.makeRequest(url);
                 },
-                // Strategy 2: Try address points
+                // Strategy 2: LIKE query with wildcards
                 async () => {
-                    const url = `${this.endpoints.addressPoints}/query?where=FULL_ADDRESS LIKE '%${encodeURIComponent(queryString)}%'&outFields=*&f=json&resultRecordCount=10`;
+                    const url = `${this.endpoints.parcels}/query?where=FULL_STREET_NAME LIKE '%${encodeURIComponent(searchAddress)}%'&outFields=*&f=json&resultRecordCount=10`;
                     return await this.makeRequest(url);
                 },
-                // Strategy 3: Try original parcel search table
+                // Strategy 3: Just street number and first word of street name
                 async () => {
-                    const url = `${this.endpoints.parcels}/query?where=FULL_STREET_NAME LIKE '%${encodeURIComponent(queryString)}%'&outFields=*&f=json&resultRecordCount=10`;
-                    return await this.makeRequest(url);
+                    const parts = searchAddress.match(/^(\d+)\s+(\w+)/);
+                    if (parts) {
+                        const streetNum = parts[1];
+                        const streetWord = parts[2];
+                        const url = `${this.endpoints.parcels}/query?where=FULL_STREET_NAME LIKE '${streetNum}%${streetWord}%'&outFields=*&f=json&resultRecordCount=20`;
+                        return await this.makeRequest(url);
+                    }
+                    return null;
                 },
-                // Strategy 4: Try with just street number
+                // Strategy 4: Just the street number
                 async () => {
-                    if (addressParts) {
-                        const streetNumber = addressParts[1];
-                        const url = `${this.endpoints.landDatabase}/query?where=SITUS_ADDRESS LIKE '${streetNumber}%'&outFields=*&f=json&resultRecordCount=20`;
+                    const streetNum = searchAddress.match(/^(\d+)/);
+                    if (streetNum) {
+                        const url = `${this.endpoints.parcels}/query?where=FULL_STREET_NAME LIKE '${streetNum[1]}%'&outFields=*&f=json&resultRecordCount=50`;
                         return await this.makeRequest(url);
                     }
                     return null;
@@ -398,18 +393,36 @@ class AustinGISService {
             ];
             
             // Try each strategy until one succeeds
-            for (const strategy of searchStrategies) {
+            for (let i = 0; i < searchStrategies.length; i++) {
                 try {
-                    const result = await strategy();
+                    console.log(`Trying search strategy ${i + 1}`);
+                    const result = await searchStrategies[i]();
                     if (result && result.features && result.features.length > 0) {
-                        console.log('Found property using strategy');
-                        return this.formatParcelData(result.features[0]);
+                        console.log(`Found ${result.features.length} properties using strategy ${i + 1}`);
+                        
+                        // If multiple results, try to find best match
+                        let bestMatch = result.features[0];
+                        if (result.features.length > 1) {
+                            for (const feature of result.features) {
+                                const fullStreet = (feature.attributes.FULL_STREET_NAME || '').toUpperCase();
+                                // Check if this is a better match
+                                if (fullStreet.includes(searchAddress) || 
+                                    fullStreet === searchAddress ||
+                                    fullStreet.startsWith(searchAddress.split(' ')[0])) {
+                                    bestMatch = feature;
+                                    break;
+                                }
+                            }
+                        }
+                        
+                        return this.formatParcelData(bestMatch);
                     }
                 } catch (error) {
-                    console.warn('Strategy failed:', error);
+                    console.warn(`Strategy ${i + 1} failed:`, error);
                 }
             }
             
+            console.log('No properties found with any strategy');
             return null;
         } catch (error) {
             console.error('Parcel search error:', error);
@@ -433,17 +446,19 @@ class AustinGISService {
     formatParcelData(feature) {
         const attrs = feature.attributes;
         
-        // Handle different attribute names from different services
+        // Log what fields we actually have
+        console.log('Available fields:', Object.keys(attrs));
+        
         return {
-            parcelId: attrs.TCAD_PROP_ID || attrs.PROP_ID || attrs.PARCEL_ID,
-            address: attrs.SITUS_ADDRESS || attrs.FULL_STREET_NAME || attrs.FULL_ADDRESS || attrs.ADDRESS,
-            owner: attrs.OWNER_NAME || attrs.OWNER,
-            lotSize: attrs.SHAPE_Area || attrs.AREA_SF || attrs.LOT_SIZE || 0,
-            zoning: attrs.ZONING || attrs.ZONING_ZTYPE || 'Unknown',
-            landValue: attrs.LAND_VALUE || attrs.LAND_VAL || 0,
-            improvementValue: attrs.IMPROVEMENT_VALUE || attrs.IMPR_VAL || 0,
-            totalValue: attrs.TOTAL_VALUE || attrs.TOTAL_VAL || 0,
-            yearBuilt: attrs.YEAR_BUILT || attrs.YR_BUILT || 0,
+            parcelId: attrs.TCAD_PROP_ID || attrs.PROP_ID || attrs.OBJECTID,
+            address: attrs.FULL_STREET_NAME || attrs.ADDRESS || 'Unknown',
+            owner: attrs.OWNER_NAME || attrs.OWNER || 'Unknown',
+            lotSize: attrs.SHAPE_Area || attrs.AREA || 0,
+            zoning: attrs.ZONING || 'Unknown',
+            landValue: attrs.LAND_VALUE || 0,
+            improvementValue: attrs.IMPROVEMENT_VALUE || 0,
+            totalValue: attrs.TOTAL_VALUE || attrs.APPRAISED_VALUE || 0,
+            yearBuilt: attrs.YEAR_BUILT || 0,
             geometry: feature.geometry
         };
     }
