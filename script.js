@@ -328,9 +328,12 @@ const propertyDataService = new PropertyDataService();
 // Austin GIS Service Integration
 class AustinGISService {
     constructor() {
-        // Austin's ArcGIS REST endpoints
+        // Austin's ArcGIS REST endpoints - updated with current services
         this.endpoints = {
+            // Try multiple parcel services
             parcels: 'https://services.arcgis.com/0L95CJ0VTaxqcmED/ArcGIS/rest/services/ParcelSearchTable/FeatureServer/0',
+            landDatabase: 'https://services.arcgis.com/0L95CJ0VTaxqcmED/ArcGIS/rest/services/land_database_tcad_view/FeatureServer/0',
+            addressPoints: 'https://services.arcgis.com/0L95CJ0VTaxqcmED/ArcGIS/rest/services/Address_Points/FeatureServer/0',
             zoning: 'https://services.arcgis.com/0L95CJ0VTaxqcmED/ArcGIS/rest/services/ZONING_ORDINANCE/FeatureServer/0',
             historicDistricts: 'https://services.arcgis.com/0L95CJ0VTaxqcmED/ArcGIS/rest/services/HP_Districts/FeatureServer/0',
             trees: 'https://services.arcgis.com/0L95CJ0VTaxqcmED/ArcGIS/rest/services/ENVIRONMENTAL_HERITAGE_TREES/FeatureServer/0'
@@ -366,56 +369,44 @@ class AustinGISService {
             
             console.log('Searching for address:', queryString);
             
-            // Query Austin's parcel service with a more flexible search
-            const austinUrl = `${this.endpoints.parcels}/query?where=FULL_STREET_NAME LIKE '%${encodeURIComponent(queryString)}%' OR SitusAddress LIKE '%${encodeURIComponent(queryString)}%'&outFields=*&f=json&resultRecordCount=10`;
-            
-            // Use proxy to handle CORS
-            const proxyUrl = window.location.hostname === 'localhost' 
-                ? `http://localhost:3000/proxy?url=${encodeURIComponent(austinUrl)}`
-                : `https://corsproxy.io/?${encodeURIComponent(austinUrl)}`;
-            
-            console.log('Fetching from:', proxyUrl);
-            
-            const response = await fetch(proxyUrl);
-            const data = await response.json();
-            
-            console.log('Austin GIS response:', data);
-            
-            if (data.features && data.features.length > 0) {
-                // If multiple results, try to find best match
-                let bestMatch = data.features[0];
-                if (data.features.length > 1) {
-                    // Look for exact match
-                    for (const feature of data.features) {
-                        const fullStreet = feature.attributes.FULL_STREET_NAME || '';
-                        if (fullStreet.includes(queryString)) {
-                            bestMatch = feature;
-                            break;
-                        }
+            // Try different endpoints and query methods
+            const searchStrategies = [
+                // Strategy 1: Try land database with SITUS_ADDRESS
+                async () => {
+                    const url = `${this.endpoints.landDatabase}/query?where=SITUS_ADDRESS LIKE '%${encodeURIComponent(queryString)}%'&outFields=*&f=json&resultRecordCount=10`;
+                    return await this.makeRequest(url);
+                },
+                // Strategy 2: Try address points
+                async () => {
+                    const url = `${this.endpoints.addressPoints}/query?where=FULL_ADDRESS LIKE '%${encodeURIComponent(queryString)}%'&outFields=*&f=json&resultRecordCount=10`;
+                    return await this.makeRequest(url);
+                },
+                // Strategy 3: Try original parcel search table
+                async () => {
+                    const url = `${this.endpoints.parcels}/query?where=FULL_STREET_NAME LIKE '%${encodeURIComponent(queryString)}%'&outFields=*&f=json&resultRecordCount=10`;
+                    return await this.makeRequest(url);
+                },
+                // Strategy 4: Try with just street number
+                async () => {
+                    if (addressParts) {
+                        const streetNumber = addressParts[1];
+                        const url = `${this.endpoints.landDatabase}/query?where=SITUS_ADDRESS LIKE '${streetNumber}%'&outFields=*&f=json&resultRecordCount=20`;
+                        return await this.makeRequest(url);
                     }
+                    return null;
                 }
-                return this.formatParcelData(bestMatch);
-            }
+            ];
             
-            // Try alternative search if first attempt fails
-            if (addressParts) {
-                const streetNumber = addressParts[1];
-                const streetNameWords = addressParts[2].split(' ');
-                
-                // Try with just the first word of street name
-                if (streetNameWords.length > 0) {
-                    const simpleQuery = `${streetNumber} ${streetNameWords[0]}`;
-                    const altUrl = `${this.endpoints.parcels}/query?where=FULL_STREET_NAME LIKE '%${encodeURIComponent(simpleQuery)}%'&outFields=*&f=json&resultRecordCount=10`;
-                    const altProxyUrl = window.location.hostname === 'localhost' 
-                        ? `http://localhost:3000/proxy?url=${encodeURIComponent(altUrl)}`
-                        : `https://corsproxy.io/?${encodeURIComponent(altUrl)}`;
-                    
-                    const altResponse = await fetch(altProxyUrl);
-                    const altData = await altResponse.json();
-                    
-                    if (altData.features && altData.features.length > 0) {
-                        return this.formatParcelData(altData.features[0]);
+            // Try each strategy until one succeeds
+            for (const strategy of searchStrategies) {
+                try {
+                    const result = await strategy();
+                    if (result && result.features && result.features.length > 0) {
+                        console.log('Found property using strategy');
+                        return this.formatParcelData(result.features[0]);
                     }
+                } catch (error) {
+                    console.warn('Strategy failed:', error);
                 }
             }
             
@@ -426,18 +417,33 @@ class AustinGISService {
         }
     }
     
+    async makeRequest(austinUrl) {
+        const proxyUrl = window.location.hostname === 'localhost' 
+            ? `http://localhost:3000/proxy?url=${encodeURIComponent(austinUrl)}`
+            : `https://corsproxy.io/?${encodeURIComponent(austinUrl)}`;
+        
+        console.log('Making request to:', austinUrl);
+        
+        const response = await fetch(proxyUrl);
+        const data = await response.json();
+        
+        return data;
+    }
+    
     formatParcelData(feature) {
         const attrs = feature.attributes;
+        
+        // Handle different attribute names from different services
         return {
-            parcelId: attrs.TCAD_PROP_ID,
-            address: attrs.FULL_STREET_NAME,
-            owner: attrs.OWNER_NAME,
-            lotSize: attrs.SHAPE_Area, // Square feet
-            zoning: attrs.ZONING,
-            landValue: attrs.LAND_VALUE,
-            improvementValue: attrs.IMPROVEMENT_VALUE,
-            totalValue: attrs.TOTAL_VALUE,
-            yearBuilt: attrs.YEAR_BUILT,
+            parcelId: attrs.TCAD_PROP_ID || attrs.PROP_ID || attrs.PARCEL_ID,
+            address: attrs.SITUS_ADDRESS || attrs.FULL_STREET_NAME || attrs.FULL_ADDRESS || attrs.ADDRESS,
+            owner: attrs.OWNER_NAME || attrs.OWNER,
+            lotSize: attrs.SHAPE_Area || attrs.AREA_SF || attrs.LOT_SIZE || 0,
+            zoning: attrs.ZONING || attrs.ZONING_ZTYPE || 'Unknown',
+            landValue: attrs.LAND_VALUE || attrs.LAND_VAL || 0,
+            improvementValue: attrs.IMPROVEMENT_VALUE || attrs.IMPR_VAL || 0,
+            totalValue: attrs.TOTAL_VALUE || attrs.TOTAL_VAL || 0,
+            yearBuilt: attrs.YEAR_BUILT || attrs.YR_BUILT || 0,
             geometry: feature.geometry
         };
     }
@@ -634,12 +640,16 @@ async function analyzeAddress() {
         // Update status message based on data source
         const apiStatus = document.getElementById('apiStatus');
         if (property && property.dataSource === 'austin-gis') {
-            apiStatus.textContent = '✓ Connected to Austin GIS - Using real property data';
-            apiStatus.style.color = '#38a169'; // Green
+            apiStatus.innerHTML = '<i class="fas fa-check-circle"></i> Connected to Austin GIS - Using real property data';
+            apiStatus.style.background = '#d1fae5';
+            apiStatus.style.color = '#065f46';
+            apiStatus.style.border = '1px solid #6ee7b7';
             apiStatus.style.display = 'block';
         } else if (property && property.dataSource === 'demo') {
-            apiStatus.textContent = 'ℹ️ Using demo data - Address matches a demo property';
-            apiStatus.style.color = '#3182ce'; // Blue
+            apiStatus.innerHTML = '<i class="fas fa-info-circle"></i> Using demo data - Address matches a demo property';
+            apiStatus.style.background = '#dbeafe';
+            apiStatus.style.color = '#1e3a8a';
+            apiStatus.style.border = '1px solid #93c5fd';
             apiStatus.style.display = 'block';
         }
         
