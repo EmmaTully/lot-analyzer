@@ -64,21 +64,31 @@
                     <h2><i class="fas fa-search"></i> Quick Property Analysis</h2>
                     <p>Enter a single Austin address to analyze its lot split potential.</p>
                     
-                    <div class="address-input-container">
-                        <input type="text" 
-                               id="addressInput" 
-                               class="address-input" 
-                               placeholder="e.g. 1234 Oak Street, Austin, TX 78704"
-                               onkeypress="if(event.key==='Enter') analyzeAddress()">
-                        <button class="btn-analyze-address" onclick="analyzeAddress()">
-                            <i class="fas fa-search"></i> Analyze
-                        </button>
-                    </div>
-                    
-                    <div id="addressError" class="error-message" style="display: none;"></div>
-                    <div id="addressLoading" class="loading-message" style="display: none;">
-                        <div class="loading-spinner"></div>
-                        <span>Fetching property data...</span>
+                    <div class="address-search-section">
+                        <div style="display: flex; gap: 1rem; margin-bottom: 1rem;">
+                            <input type="text" 
+                                   id="addressInput" 
+                                   placeholder="e.g., 4400 Avenue G, Austin, TX 78751" 
+                                   style="flex: 1; padding: 0.75rem 1rem; border: 2px solid #e2e8f0; border-radius: 0.5rem; font-size: 1rem;"
+                                   onkeypress="if(event.key==='Enter') analyzeAddress()">
+                            <button onclick="analyzeAddress()" 
+                                    style="padding: 0.75rem 2rem; background: #667eea; color: white; border: none; border-radius: 0.5rem; font-weight: 600; cursor: pointer; transition: background 0.2s;">
+                                🔍 Analyze
+                            </button>
+                        </div>
+                        
+                        <p style="font-size: 0.875rem; color: #94a3b8; margin-bottom: 0.5rem;">
+                            💡 <strong>Tip:</strong> Enter any Austin street address or type "demo" to see an example analysis.
+                        </p>
+                        
+                        <div id="addressLoading" style="display: none; align-items: center; gap: 0.5rem; color: #667eea; margin-top: 1rem;">
+                            <div class="spinner"></div>
+                            <span>Searching property data...</span>
+                        </div>
+                        
+                        <div id="addressError" style="display: none; color: #ef4444; margin-top: 1rem; padding: 0.75rem; background: #fee2e2; border-radius: 0.5rem;">
+                            <!-- Error message will be displayed here -->
+                        </div>
                     </div>
                     
                     <div class="api-status">

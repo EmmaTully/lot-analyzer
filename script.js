@@ -169,23 +169,8 @@ class PropertyDataService {
                 return property;
             }
             
-            // If neither found, create a minimal property for demo purposes
-            // This allows the user to still see the analysis features
-            const minimalProperty = {
-                address: address,
-                price: 500000, // Default price
-                lotSize: 7500, // Default lot size
-                zoning: 'SF-3',
-                bedrooms: 3,
-                bathrooms: 2,
-                squareFeet: 1800,
-                yearBuilt: 1990,
-                dataSource: 'estimated',
-                note: 'Property data not found - using estimated values for demonstration'
-            };
-            
-            this.cache.set(address, minimalProperty);
-            return minimalProperty;
+            // If neither found, throw error - don't make up data
+            throw new Error('Property not found in Austin GIS database. Please try:\n• A different Austin address\n• Type "demo" to see an example\n• Use the CSV upload feature for bulk analysis');
             
         } catch (error) {
             throw error;
@@ -219,10 +204,10 @@ class PropertyDataService {
     }
 
     async tryDemoData(address) {
-        // Demo properties for testing
+        // Demo properties for testing - these are EXAMPLE properties, not real data
         const demoProperties = [
             {
-                address: "1234 Oak Street, Austin, TX 78704",
+                address: "Demo Property 1 - 1234 Oak Street, Austin, TX 78704",
                 price: 450000,
                 lotSize: 8500,
                 zoning: 'SF-3',
@@ -233,7 +218,7 @@ class PropertyDataService {
                 lotDimensions: { width: 85, depth: 100, source: 'demo' }
             },
             {
-                address: "5678 Elm Avenue, Austin, TX 78745",
+                address: "Demo Property 2 - 5678 Elm Avenue, Austin, TX 78745",
                 price: 520000,
                 lotSize: 15000,
                 zoning: 'SF-4A',
@@ -244,7 +229,7 @@ class PropertyDataService {
                 lotDimensions: { width: 100, depth: 150, source: 'demo' }
             },
             {
-                address: "789 Cedar Lane, Austin, TX 78703",
+                address: "Demo Property 3 - 789 Cedar Lane, Austin, TX 78703",
                 price: 950000,
                 lotSize: 10500,
                 zoning: 'SF-3',
@@ -256,16 +241,16 @@ class PropertyDataService {
             }
         ];
 
-        // Simple fuzzy matching
+        // Check if user is specifically looking for demo properties
         const normalizedInput = address.toLowerCase().replace(/[,.\s]+/g, ' ').trim();
         
-        for (const prop of demoProperties) {
-            const normalizedProp = prop.address.toLowerCase().replace(/[,.\s]+/g, ' ').trim();
-            if (normalizedProp.includes(normalizedInput) || normalizedInput.includes(normalizedProp)) {
-                return prop;
-            }
+        // Only return demo data if user types "demo" or one of the specific demo addresses
+        if (normalizedInput.includes('demo')) {
+            // Return the first demo property if they just type "demo"
+            return demoProperties[0];
         }
         
+        // Don't match real addresses to demo properties
         return null;
     }
 
@@ -656,24 +641,12 @@ async function analyzeAddress() {
             apiStatus.textContent = 'ℹ️ Using demo data - Address matches a demo property';
             apiStatus.style.color = '#3182ce'; // Blue
             apiStatus.style.display = 'block';
-        } else if (property && property.dataSource === 'estimated') {
-            apiStatus.textContent = '⚠️ Property not found in Austin GIS - Using estimated values for demonstration';
-            apiStatus.style.color = '#f59e0b'; // Orange
-            apiStatus.style.display = 'block';
         }
         
-        // If property has a note (e.g., for estimated data), display it
-        if (property && property.note) {
-            const noteDiv = document.createElement('div');
-            noteDiv.className = 'property-note';
-            noteDiv.style.cssText = 'background: #fffbeb; border: 1px solid #fbbf24; padding: 12px; border-radius: 8px; margin: 16px 0; color: #92400e; font-size: 0.875rem;';
-            noteDiv.innerHTML = `<strong>Note:</strong> ${property.note}`;
-            
-            // Insert after the address search section
-            const addressSection = document.querySelector('.address-search-section');
-            if (addressSection && !document.querySelector('.property-note')) {
-                addressSection.after(noteDiv);
-            }
+        // Remove any existing property notes
+        const existingNote = document.querySelector('.property-note');
+        if (existingNote) {
+            existingNote.remove();
         }
         
         // Configure analysis parameters (using defaults)
@@ -707,7 +680,9 @@ async function analyzeAddress() {
 
 function showAddressError(message) {
     const errorDiv = document.getElementById('addressError');
-    errorDiv.innerHTML = `<i class="fas fa-exclamation-circle"></i> ${message}`;
+    // Convert newlines to <br> for proper display
+    const formattedMessage = message.replace(/\n/g, '<br>');
+    errorDiv.innerHTML = `<i class="fas fa-exclamation-circle"></i> ${formattedMessage}`;
     errorDiv.style.display = 'flex';
 }
 
