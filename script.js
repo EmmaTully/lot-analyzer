@@ -151,18 +151,42 @@ class PropertyDataService {
         }
 
         try {
-            // Try multiple data sources
-            let property = await this.tryDemoData(address);
-            if (!property) {
-                property = await this.tryExternalAPIs(address);
-            }
+            // Try real Austin GIS data first
+            let property = await this.tryExternalAPIs(address);
             
             if (property) {
+                property.dataSource = 'austin-gis';
                 this.cache.set(address, property);
                 return property;
             }
             
-            throw new Error('Property not found');
+            // If real data not found, try demo data
+            property = await this.tryDemoData(address);
+            
+            if (property) {
+                property.dataSource = 'demo';
+                this.cache.set(address, property);
+                return property;
+            }
+            
+            // If neither found, create a minimal property for demo purposes
+            // This allows the user to still see the analysis features
+            const minimalProperty = {
+                address: address,
+                price: 500000, // Default price
+                lotSize: 7500, // Default lot size
+                zoning: 'SF-3',
+                bedrooms: 3,
+                bathrooms: 2,
+                squareFeet: 1800,
+                yearBuilt: 1990,
+                dataSource: 'estimated',
+                note: 'Property data not found - using estimated values for demonstration'
+            };
+            
+            this.cache.set(address, minimalProperty);
+            return minimalProperty;
+            
         } catch (error) {
             throw error;
         }
@@ -333,22 +357,81 @@ class AustinGISService {
     
     async searchParcelByAddress(address) {
         try {
-            // Format address for query
-            const searchAddress = address.toUpperCase().replace(/,/g, '');
+            // Format address for query - try multiple formats
+            const searchAddress = address.toUpperCase()
+                .replace(/,/g, '')
+                .replace(/AVENUE/g, 'AVE')
+                .replace(/STREET/g, 'ST')
+                .replace(/ROAD/g, 'RD')
+                .replace(/DRIVE/g, 'DR')
+                .replace(/LANE/g, 'LN')
+                .replace(/BOULEVARD/g, 'BLVD')
+                .trim();
             
-            // Query Austin's parcel service
-            const austinUrl = `${this.endpoints.parcels}/query?where=FULL_STREET_NAME LIKE '%${encodeURIComponent(searchAddress)}%'&outFields=*&f=json`;
+            // Extract just the street number and name for a more flexible search
+            const addressParts = searchAddress.match(/^(\d+)\s+(.+?)(?:\s+AUSTIN|\s+TX|\s+\d{5}|$)/);
+            let queryString = searchAddress;
+            
+            if (addressParts) {
+                const streetNumber = addressParts[1];
+                const streetName = addressParts[2];
+                // Try searching with just street number and partial street name
+                queryString = `${streetNumber} ${streetName}`;
+            }
+            
+            console.log('Searching for address:', queryString);
+            
+            // Query Austin's parcel service with a more flexible search
+            const austinUrl = `${this.endpoints.parcels}/query?where=FULL_STREET_NAME LIKE '%${encodeURIComponent(queryString)}%' OR SitusAddress LIKE '%${encodeURIComponent(queryString)}%'&outFields=*&f=json&resultRecordCount=10`;
             
             // Use proxy to handle CORS
-            // For development: const proxyUrl = `http://localhost:3000/proxy?url=${encodeURIComponent(austinUrl)}`;
-            // For production (using public CORS proxy - temporary solution):
-            const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(austinUrl)}`;
+            const proxyUrl = window.location.hostname === 'localhost' 
+                ? `http://localhost:3000/proxy?url=${encodeURIComponent(austinUrl)}`
+                : `https://corsproxy.io/?${encodeURIComponent(austinUrl)}`;
+            
+            console.log('Fetching from:', proxyUrl);
             
             const response = await fetch(proxyUrl);
             const data = await response.json();
             
+            console.log('Austin GIS response:', data);
+            
             if (data.features && data.features.length > 0) {
-                return this.formatParcelData(data.features[0]);
+                // If multiple results, try to find best match
+                let bestMatch = data.features[0];
+                if (data.features.length > 1) {
+                    // Look for exact match
+                    for (const feature of data.features) {
+                        const fullStreet = feature.attributes.FULL_STREET_NAME || '';
+                        if (fullStreet.includes(queryString)) {
+                            bestMatch = feature;
+                            break;
+                        }
+                    }
+                }
+                return this.formatParcelData(bestMatch);
+            }
+            
+            // Try alternative search if first attempt fails
+            if (addressParts) {
+                const streetNumber = addressParts[1];
+                const streetNameWords = addressParts[2].split(' ');
+                
+                // Try with just the first word of street name
+                if (streetNameWords.length > 0) {
+                    const simpleQuery = `${streetNumber} ${streetNameWords[0]}`;
+                    const altUrl = `${this.endpoints.parcels}/query?where=FULL_STREET_NAME LIKE '%${encodeURIComponent(simpleQuery)}%'&outFields=*&f=json&resultRecordCount=10`;
+                    const altProxyUrl = window.location.hostname === 'localhost' 
+                        ? `http://localhost:3000/proxy?url=${encodeURIComponent(altUrl)}`
+                        : `https://corsproxy.io/?${encodeURIComponent(altUrl)}`;
+                    
+                    const altResponse = await fetch(altProxyUrl);
+                    const altData = await altResponse.json();
+                    
+                    if (altData.features && altData.features.length > 0) {
+                        return this.formatParcelData(altData.features[0]);
+                    }
+                }
             }
             
             return null;
@@ -562,6 +645,36 @@ async function analyzeAddress() {
     try {
         // Fetch property data
         const property = await propertyDataService.searchProperty(address);
+        
+        // Update status message based on data source
+        const apiStatus = document.getElementById('apiStatus');
+        if (property && property.dataSource === 'austin-gis') {
+            apiStatus.textContent = '✓ Connected to Austin GIS - Using real property data';
+            apiStatus.style.color = '#38a169'; // Green
+            apiStatus.style.display = 'block';
+        } else if (property && property.dataSource === 'demo') {
+            apiStatus.textContent = 'ℹ️ Using demo data - Address matches a demo property';
+            apiStatus.style.color = '#3182ce'; // Blue
+            apiStatus.style.display = 'block';
+        } else if (property && property.dataSource === 'estimated') {
+            apiStatus.textContent = '⚠️ Property not found in Austin GIS - Using estimated values for demonstration';
+            apiStatus.style.color = '#f59e0b'; // Orange
+            apiStatus.style.display = 'block';
+        }
+        
+        // If property has a note (e.g., for estimated data), display it
+        if (property && property.note) {
+            const noteDiv = document.createElement('div');
+            noteDiv.className = 'property-note';
+            noteDiv.style.cssText = 'background: #fffbeb; border: 1px solid #fbbf24; padding: 12px; border-radius: 8px; margin: 16px 0; color: #92400e; font-size: 0.875rem;';
+            noteDiv.innerHTML = `<strong>Note:</strong> ${property.note}`;
+            
+            // Insert after the address search section
+            const addressSection = document.querySelector('.address-search-section');
+            if (addressSection && !document.querySelector('.property-note')) {
+                addressSection.after(noteDiv);
+            }
+        }
         
         // Configure analysis parameters (using defaults)
         const config = {
