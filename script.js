@@ -126,6 +126,412 @@ const austinMarketData = {
     }
 };
 
+// Property Data Service for API Integration
+class PropertyDataService {
+    constructor() {
+        this.cache = new Map();
+        this.rateLimiter = new Map();
+        this.maxRequestsPerMinute = 60;
+        this.apiKeys = {
+            rentcast: '', // Add your API key
+            attom: '',    // Add your API key
+            // Travis County doesn't require a key
+        };
+    }
+
+    async searchProperty(address) {
+        // Check cache first
+        if (this.cache.has(address)) {
+            return this.cache.get(address);
+        }
+
+        // Check rate limits
+        if (this.isRateLimited()) {
+            throw new Error('Too many requests. Please wait a moment.');
+        }
+
+        try {
+            // Try multiple data sources
+            let property = await this.tryDemoData(address);
+            if (!property) {
+                property = await this.tryExternalAPIs(address);
+            }
+            
+            if (property) {
+                this.cache.set(address, property);
+                return property;
+            }
+            
+            throw new Error('Property not found');
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    isRateLimited() {
+        const now = Date.now();
+        const minuteAgo = now - 60000;
+        
+        // Clean old entries
+        for (const [time, count] of this.rateLimiter) {
+            if (time < minuteAgo) {
+                this.rateLimiter.delete(time);
+            }
+        }
+        
+        // Count recent requests
+        let recentRequests = 0;
+        for (const [time, count] of this.rateLimiter) {
+            recentRequests += count;
+        }
+        
+        if (recentRequests >= this.maxRequestsPerMinute) {
+            return true;
+        }
+        
+        // Add current request
+        this.rateLimiter.set(now, (this.rateLimiter.get(now) || 0) + 1);
+        return false;
+    }
+
+    async tryDemoData(address) {
+        // Demo properties for testing
+        const demoProperties = [
+            {
+                address: "1234 Oak Street, Austin, TX 78704",
+                price: 450000,
+                lotSize: 8500,
+                zoning: 'SF-3',
+                bedrooms: 3,
+                bathrooms: 2,
+                squareFeet: 1800,
+                yearBuilt: 1985,
+                lotDimensions: { width: 85, depth: 100, source: 'demo' }
+            },
+            {
+                address: "5678 Elm Avenue, Austin, TX 78745",
+                price: 520000,
+                lotSize: 15000,
+                zoning: 'SF-4A',
+                bedrooms: 4,
+                bathrooms: 3,
+                squareFeet: 2200,
+                yearBuilt: 1992,
+                lotDimensions: { width: 100, depth: 150, source: 'demo' }
+            },
+            {
+                address: "789 Cedar Lane, Austin, TX 78703",
+                price: 950000,
+                lotSize: 10500,
+                zoning: 'SF-3',
+                bedrooms: 3,
+                bathrooms: 2,
+                squareFeet: 1650,
+                yearBuilt: 1982,
+                lotDimensions: { width: 70, depth: 150, source: 'demo' }
+            }
+        ];
+
+        // Simple fuzzy matching
+        const normalizedInput = address.toLowerCase().replace(/[,.\s]+/g, ' ').trim();
+        
+        for (const prop of demoProperties) {
+            const normalizedProp = prop.address.toLowerCase().replace(/[,.\s]+/g, ' ').trim();
+            if (normalizedProp.includes(normalizedInput) || normalizedInput.includes(normalizedProp)) {
+                return prop;
+            }
+        }
+        
+        return null;
+    }
+
+    async tryExternalAPIs(address) {
+        // Try Austin GIS service first
+        try {
+            const parcelData = await austinGIS.searchParcelByAddress(address);
+            if (parcelData) {
+                // Get additional data
+                const center = this.getParcelCenter(parcelData.geometry);
+                const zoningInfo = await austinGIS.getZoningInfo(center.lat, center.lon);
+                const historicInfo = await austinGIS.checkHistoricDistrict(center.lat, center.lon);
+                
+                return {
+                    address: parcelData.address,
+                    price: parcelData.totalValue,
+                    lotSize: parcelData.lotSize,
+                    zoning: zoningInfo?.district || parcelData.zoning,
+                    bedrooms: 0, // Not available from parcel data
+                    bathrooms: 0, // Not available from parcel data
+                    squareFeet: 0, // Would need to calculate from improvement value
+                    yearBuilt: parcelData.yearBuilt,
+                    lotDimensions: null, // Would need to calculate from geometry
+                    parcelData: parcelData,
+                    zoningInfo: zoningInfo,
+                    historicInfo: historicInfo
+                };
+            }
+        } catch (error) {
+            console.warn('Austin GIS error:', error);
+        }
+        
+        return null;
+    }
+    
+    getParcelCenter(geometry) {
+        // Simple center calculation for polygon
+        if (geometry && geometry.rings && geometry.rings[0]) {
+            const ring = geometry.rings[0];
+            let sumX = 0, sumY = 0;
+            for (const point of ring) {
+                sumX += point[0];
+                sumY += point[1];
+            }
+            return {
+                lon: sumX / ring.length,
+                lat: sumY / ring.length
+            };
+        }
+        return { lat: 30.2672, lon: -97.7431 }; // Austin center as fallback
+    }
+
+    formatTravisCountyData(data) {
+        if (!data.properties || data.properties.length === 0) return null;
+        
+        const prop = data.properties[0];
+        return {
+            address: prop.siteAddress,
+            price: prop.marketValue,
+            lotSize: prop.landSqFt,
+            zoning: prop.zoning || 'SF-3',
+            bedrooms: prop.bedrooms || 0,
+            bathrooms: prop.bathrooms || 0,
+            squareFeet: prop.improvementSqFt || 0,
+            yearBuilt: prop.yearBuilt || 0,
+            // Travis County doesn't provide dimensions, so we'd need to estimate
+            lotDimensions: null
+        };
+    }
+}
+
+// Initialize the property data service
+const propertyDataService = new PropertyDataService();
+
+// Austin GIS Service Integration
+class AustinGISService {
+    constructor() {
+        // Austin's ArcGIS REST endpoints
+        this.endpoints = {
+            parcels: 'https://services.arcgis.com/0L95CJ0VTaxqcmED/ArcGIS/rest/services/ParcelSearchTable/FeatureServer/0',
+            zoning: 'https://services.arcgis.com/0L95CJ0VTaxqcmED/ArcGIS/rest/services/ZONING_ORDINANCE/FeatureServer/0',
+            historicDistricts: 'https://services.arcgis.com/0L95CJ0VTaxqcmED/ArcGIS/rest/services/HP_Districts/FeatureServer/0',
+            trees: 'https://services.arcgis.com/0L95CJ0VTaxqcmED/ArcGIS/rest/services/ENVIRONMENTAL_HERITAGE_TREES/FeatureServer/0'
+        };
+        
+        this.map = null;
+        this.currentProperty = null;
+    }
+    
+    async searchParcelByAddress(address) {
+        try {
+            // Format address for query
+            const searchAddress = address.toUpperCase().replace(/,/g, '');
+            
+            // Query Austin's parcel service
+            const austinUrl = `${this.endpoints.parcels}/query?where=FULL_STREET_NAME LIKE '%${encodeURIComponent(searchAddress)}%'&outFields=*&f=json`;
+            
+            // Use proxy to handle CORS
+            // For development: const proxyUrl = `http://localhost:3000/proxy?url=${encodeURIComponent(austinUrl)}`;
+            // For production (using public CORS proxy - temporary solution):
+            const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(austinUrl)}`;
+            
+            const response = await fetch(proxyUrl);
+            const data = await response.json();
+            
+            if (data.features && data.features.length > 0) {
+                return this.formatParcelData(data.features[0]);
+            }
+            
+            return null;
+        } catch (error) {
+            console.error('Parcel search error:', error);
+            return null;
+        }
+    }
+    
+    formatParcelData(feature) {
+        const attrs = feature.attributes;
+        return {
+            parcelId: attrs.TCAD_PROP_ID,
+            address: attrs.FULL_STREET_NAME,
+            owner: attrs.OWNER_NAME,
+            lotSize: attrs.SHAPE_Area, // Square feet
+            zoning: attrs.ZONING,
+            landValue: attrs.LAND_VALUE,
+            improvementValue: attrs.IMPROVEMENT_VALUE,
+            totalValue: attrs.TOTAL_VALUE,
+            yearBuilt: attrs.YEAR_BUILT,
+            geometry: feature.geometry
+        };
+    }
+    
+    async getZoningInfo(lat, lon) {
+        try {
+            const austinUrl = `${this.endpoints.zoning}/query?geometry=${lon},${lat}&geometryType=esriGeometryPoint&outFields=*&f=json`;
+            const url = `https://corsproxy.io/?${encodeURIComponent(austinUrl)}`;
+            const response = await fetch(url);
+            const data = await response.json();
+            
+            if (data.features && data.features.length > 0) {
+                const zoning = data.features[0].attributes;
+                return {
+                    district: zoning.ZONING_ZTYPE,
+                    description: zoning.DESCRIPTION,
+                    minLotSize: this.getMinLotSize(zoning.ZONING_ZTYPE),
+                    setbacks: this.getSetbackRequirements(zoning.ZONING_ZTYPE)
+                };
+            }
+            return null;
+        } catch (error) {
+            console.error('Zoning query error:', error);
+            return null;
+        }
+    }
+    
+    getMinLotSize(zoningCode) {
+        // Austin's actual minimum lot sizes
+        const minSizes = {
+            'SF-1': 10000,
+            'SF-2': 5750,
+            'SF-3': 5750,
+            'SF-4A': 4500,
+            'SF-4B': 3600,
+            'SF-5': 1500, // Small lot
+            'SF-6': 3500  // Townhouse
+        };
+        return minSizes[zoningCode] || 5750;
+    }
+    
+    getSetbackRequirements(zoningCode) {
+        // Austin's actual setback requirements
+        const setbacks = {
+            'SF-1': { front: 25, side: 5, rear: 10, sideStreet: 15 },
+            'SF-2': { front: 25, side: 5, rear: 10, sideStreet: 15 },
+            'SF-3': { front: 25, side: 5, rear: 10, sideStreet: 15 },
+            'SF-4A': { front: 15, side: 5, rear: 10, sideStreet: 10 },
+            'SF-4B': { front: 10, side: 5, rear: 10, sideStreet: 10 },
+            'SF-5': { front: 10, side: 5, rear: 5, sideStreet: 10 },
+            'SF-6': { front: 10, side: 0, rear: 5, sideStreet: 10 }
+        };
+        return setbacks[zoningCode] || setbacks['SF-3'];
+    }
+    
+    async checkHistoricDistrict(lat, lon) {
+        try {
+            const austinUrl = `${this.endpoints.historicDistricts}/query?geometry=${lon},${lat}&geometryType=esriGeometryPoint&outFields=*&f=json`;
+            const url = `https://corsproxy.io/?${encodeURIComponent(austinUrl)}`;
+            const response = await fetch(url);
+            const data = await response.json();
+            
+            if (data.features && data.features.length > 0) {
+                return {
+                    inHistoricDistrict: true,
+                    districtName: data.features[0].attributes.NAME,
+                    restrictions: 'Lot splits require Historic Landmark Commission approval'
+                };
+            }
+            return { inHistoricDistrict: false };
+        } catch (error) {
+            console.error('Historic district query error:', error);
+            return { inHistoricDistrict: false };
+        }
+    }
+    
+    async checkProtectedTrees(geometry) {
+        try {
+            // Query for protected trees within the property
+            const austinUrl = `${this.endpoints.trees}/query?geometry=${JSON.stringify(geometry)}&geometryType=esriGeometryPolygon&outFields=*&f=json`;
+            const url = `https://corsproxy.io/?${encodeURIComponent(austinUrl)}`;
+            const response = await fetch(url);
+            const data = await response.json();
+            
+            if (data.features && data.features.length > 0) {
+                return {
+                    hasProtectedTrees: true,
+                    treeCount: data.features.length,
+                    trees: data.features.map(f => ({
+                        diameter: f.attributes.DIAMETER,
+                        species: f.attributes.SPECIES,
+                        condition: f.attributes.CONDITION
+                    }))
+                };
+            }
+            return { hasProtectedTrees: false };
+        } catch (error) {
+            console.error('Tree query error:', error);
+            return { hasProtectedTrees: false };
+        }
+    }
+}
+
+// Initialize GIS service
+const austinGIS = new AustinGISService();
+
+// Map functionality
+let map = null;
+let propertyLayer = null;
+let zoningLayer = null;
+
+function initializeMap(property) {
+    // Only initialize if we have coordinates
+    if (!property.geometry) return;
+    
+    const mapSection = document.getElementById('mapSection');
+    mapSection.style.display = 'block';
+    
+    // Initialize Mapbox - you'll need to add your own token
+    mapboxgl.accessToken = 'YOUR_MAPBOX_TOKEN'; // Need to set this
+    
+    if (!map) {
+        map = new mapboxgl.Map({
+            container: 'map',
+            style: 'mapbox://styles/mapbox/streets-v11',
+            center: [-97.7431, 30.2672], // Austin center
+            zoom: 17
+        });
+        
+        map.on('load', () => {
+            // Add property boundary
+            addPropertyBoundary(property);
+            
+            // Add lot split visualization
+            if (property.canSplit) {
+                addLotSplitVisualization(property);
+            }
+        });
+    }
+}
+
+function addPropertyBoundary(property) {
+    // This would add the actual parcel geometry from Austin GIS
+    // For now, showing the concept
+    console.log('Adding property boundary:', property.address);
+}
+
+function toggleZoning() {
+    // Toggle Austin zoning layer
+    console.log('Toggling zoning layer');
+}
+
+function toggleUtilities() {
+    // Toggle utility lines
+    console.log('Toggling utilities layer');
+}
+
+function toggleTrees() {
+    // Toggle protected trees
+    console.log('Toggling trees layer');
+}
+
 // Global variables
 let uploadedData = null;
 let analysisResults = null;
@@ -135,6 +541,62 @@ document.addEventListener('DOMContentLoaded', function() {
     console.log('Austin Lot Analyzer v2.0 - Show All Properties');
     setupFileUpload();
 });
+
+// Analyze single address function
+async function analyzeAddress() {
+    const addressInput = document.getElementById('addressInput');
+    const address = addressInput.value.trim();
+    
+    if (!address) {
+        showAddressError('Please enter a property address');
+        return;
+    }
+    
+    // Hide any previous errors
+    document.getElementById('addressError').style.display = 'none';
+    
+    // Show loading state
+    const loadingDiv = document.getElementById('addressLoading');
+    loadingDiv.style.display = 'flex';
+    
+    try {
+        // Fetch property data
+        const property = await propertyDataService.searchProperty(address);
+        
+        // Configure analysis parameters (using defaults)
+        const config = {
+            maxPrice: 900000,
+            minLotSize: 11500,
+            targetProfit: 20,
+            renovationBudget: 100000
+        };
+        
+        // Analyze the property
+        const analysis = analyzeSingleProperty(property, config);
+        
+        if (!analysis) {
+            throw new Error('Unable to analyze this property');
+        }
+        
+        // Display results as single-property table
+        analysisResults = [analysis];
+        displayResults(analysisResults);
+        
+        // Scroll to results
+        document.getElementById('resultsSection').scrollIntoView({ behavior: 'smooth' });
+        
+    } catch (error) {
+        showAddressError(error.message || 'Failed to analyze property');
+    } finally {
+        loadingDiv.style.display = 'none';
+    }
+}
+
+function showAddressError(message) {
+    const errorDiv = document.getElementById('addressError');
+    errorDiv.innerHTML = `<i class="fas fa-exclamation-circle"></i> ${message}`;
+    errorDiv.style.display = 'flex';
+}
 
 // File upload setup
 function setupFileUpload() {
@@ -827,9 +1289,13 @@ function showPropertyDetails(index) {
     const modal = document.getElementById('propertyModal');
     const content = document.getElementById('propertyDetailsContent');
     
+    // Generate plot map SVG
+    const plotMapHTML = generatePlotMap(result);
+    
     let detailsHTML = `
         <h2>🏠 ${result.address}</h2>
         <div class="property-details">
+            ${plotMapHTML}
             <div class="detail-section">
                 <h3>📋 Austin Zoning Analysis</h3>
                 <p><strong>Zoning:</strong> ${result.zoning} - ${result.realZoningAnalysis.zoningRules.description}</p>
@@ -894,8 +1360,6 @@ function showPropertyDetails(index) {
                 </div>
         `;
     }
-    
-
     
     if (result.timeline && result.timeline.totalMonths) {
         detailsHTML += `
@@ -1184,4 +1648,207 @@ function calculateRealBuildableArea(lotSize, zoningRules, dimensions) {
     const netBuildableArea = grossBuildableArea * 0.8; // 20% reduction for real-world constraints
     
     return Math.max(0, netBuildableArea);
+}
+
+function generatePlotMap(result) {
+    const dims = result.realZoningAnalysis.lotDimensions;
+    if (!dims || !dims.width || !dims.depth) {
+        return '<div class="plot-map-container"><p style="text-align: center; color: #718096;">Plot map not available - lot dimensions needed</p></div>';
+    }
+    
+    const zoningRules = result.realZoningAnalysis.zoningRules;
+    const canSplit = result.canSplit;
+    
+    // SVG dimensions and scale
+    const svgWidth = 600;
+    const svgHeight = 400;
+    const padding = 40;
+    
+    // Calculate scale to fit the lot in the SVG
+    const scaleX = (svgWidth - 2 * padding) / dims.width;
+    const scaleY = (svgHeight - 2 * padding) / dims.depth;
+    const scale = Math.min(scaleX, scaleY);
+    
+    // Scaled dimensions
+    const lotWidth = dims.width * scale;
+    const lotHeight = dims.depth * scale;
+    const offsetX = (svgWidth - lotWidth) / 2;
+    const offsetY = (svgHeight - lotHeight) / 2;
+    
+    // Setback dimensions
+    const frontSetback = zoningRules.frontSetback * scale;
+    const rearSetback = zoningRules.rearSetback * scale;
+    const sideSetback = zoningRules.sideSetback * scale;
+    
+    // Buildable area
+    const buildableX = offsetX + sideSetback;
+    const buildableY = offsetY + frontSetback;
+    const buildableWidth = lotWidth - 2 * sideSetback;
+    const buildableHeight = lotHeight - frontSetback - rearSetback;
+    
+    // Current house footprint (if we have square footage)
+    let houseFootprint = '';
+    if (result.squareFeet > 0) {
+        // Estimate house footprint as 40% of total square footage (accounting for multiple floors)
+        const footprintSqFt = result.squareFeet * 0.5;
+        const footprintRatio = footprintSqFt / result.lotSize;
+        const houseWidth = Math.sqrt(footprintSqFt * 1.2) * scale; // Assume 1.2:1 ratio
+        const houseDepth = (footprintSqFt / Math.sqrt(footprintSqFt * 1.2)) * scale;
+        
+        // Center the house in the buildable area
+        const houseX = buildableX + (buildableWidth - houseWidth) / 2;
+        const houseY = buildableY + (buildableHeight - houseDepth) / 2;
+        
+        houseFootprint = `
+                <!-- Current house footprint -->
+                <rect x="${houseX}" y="${houseY}" width="${houseWidth}" height="${houseDepth}" 
+                      fill="#e53e3e" fill-opacity="0.3" stroke="#e53e3e" stroke-width="1"/>
+                <text x="${houseX + houseWidth/2}" y="${houseY + houseDepth/2}" 
+                      text-anchor="middle" font-family="Arial" font-size="12" fill="#c53030">
+                    House
+                </text>
+        `;
+    }
+    
+    let svg = `
+        <div class="plot-map-container">
+            <h3>📍 Property Plot Map</h3>
+            
+            <!-- Property Summary -->
+            <div style="background: #fff; padding: 15px; border-radius: 6px; margin-bottom: 20px; border: 1px solid #e2e8f0;">
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
+                    <div>
+                        <span style="color: #718096; font-size: 0.875rem;">Lot Size</span>
+                        <div style="font-weight: 600; color: #2d3748;">${result.lotSize.toLocaleString()} sq ft</div>
+                    </div>
+                    <div>
+                        <span style="color: #718096; font-size: 0.875rem;">Dimensions</span>
+                        <div style="font-weight: 600; color: #2d3748;">${dims.width.toFixed(0)}' × ${dims.depth.toFixed(0)}'</div>
+                    </div>
+                    <div>
+                        <span style="color: #718096; font-size: 0.875rem;">Zoning</span>
+                        <div style="font-weight: 600; color: #2d3748;">${result.zoning}</div>
+                    </div>
+                    <div>
+                        <span style="color: #718096; font-size: 0.875rem;">Can Split</span>
+                        <div style="font-weight: 600; color: ${canSplit ? '#10b981' : '#ef4444'};">${canSplit ? '✓ Yes' : '✗ No'}</div>
+                    </div>
+                </div>
+            </div>
+            
+            <svg width="${svgWidth}" height="${svgHeight}" viewBox="0 0 ${svgWidth} ${svgHeight}" style="background: #f7fafc; border: 1px solid #e2e8f0; border-radius: 8px;">
+                <!-- Property boundary -->
+                <rect x="${offsetX}" y="${offsetY}" width="${lotWidth}" height="${lotHeight}" 
+                      fill="none" stroke="#2d3748" stroke-width="2"/>
+                
+                <!-- Setback lines -->
+                <rect x="${buildableX}" y="${buildableY}" width="${buildableWidth}" height="${buildableHeight}" 
+                      fill="none" stroke="#667eea" stroke-width="1" stroke-dasharray="5,5"/>
+                
+                <!-- Buildable area -->
+                <rect x="${buildableX}" y="${buildableY}" width="${buildableWidth}" height="${buildableHeight}" 
+                      fill="#667eea" fill-opacity="0.1"/>
+                
+                ${houseFootprint}
+    `;
+    
+    // Add lot split visualization if property can be split
+    if (canSplit && result.realZoningAnalysis.splitResults) {
+        const minLotSize = zoningRules.minLotSize;
+        const splitRatio = minLotSize / result.lotSize;
+        const splitLineY = offsetY + (lotHeight * splitRatio);
+        
+        svg += `
+                <!-- Lot split line -->
+                <line x1="${offsetX}" y1="${splitLineY}" x2="${offsetX + lotWidth}" y2="${splitLineY}" 
+                      stroke="#f59e0b" stroke-width="2" stroke-dasharray="10,5"/>
+                
+                <!-- Lot 1 label -->
+                <text x="${offsetX + lotWidth/2}" y="${offsetY + splitLineY/2}" 
+                      text-anchor="middle" font-family="Arial" font-size="14" fill="#4a5568">
+                    Lot 1: ${minLotSize.toLocaleString()} sq ft
+                </text>
+                
+                <!-- Lot 2 label -->
+                <text x="${offsetX + lotWidth/2}" y="${(splitLineY + offsetY + lotHeight)/2}" 
+                      text-anchor="middle" font-family="Arial" font-size="14" fill="#4a5568">
+                    Lot 2: ${result.realZoningAnalysis.splitResults.newLotSize.toLocaleString()} sq ft
+                </text>
+        `;
+    }
+    
+    // Add dimension labels
+    svg += `
+                <!-- Width label -->
+                <text x="${offsetX + lotWidth/2}" y="${offsetY - 10}" 
+                      text-anchor="middle" font-family="Arial" font-size="12" fill="#2d3748">
+                    ${dims.width.toFixed(0)}'
+                </text>
+                
+                <!-- Depth label -->
+                <text x="${offsetX - 25}" y="${offsetY + lotHeight/2}" 
+                      text-anchor="middle" font-family="Arial" font-size="12" fill="#2d3748"
+                      transform="rotate(-90 ${offsetX - 25} ${offsetY + lotHeight/2})">
+                    ${dims.depth.toFixed(0)}'
+                </text>
+                
+                <!-- Setback labels -->
+                <text x="${offsetX + 5}" y="${offsetY + frontSetback - 5}" 
+                      font-family="Arial" font-size="10" fill="#667eea">
+                    Front: ${zoningRules.frontSetback}'
+                </text>
+                
+                <text x="${buildableX + 5}" y="${offsetY + lotHeight - 5}" 
+                      font-family="Arial" font-size="10" fill="#667eea">
+                    Rear: ${zoningRules.rearSetback}'
+                </text>
+                
+                <text x="${offsetX + 5}" y="${buildableY + buildableHeight/2}" 
+                      font-family="Arial" font-size="10" fill="#667eea"
+                      transform="rotate(-90 ${offsetX + 5} ${buildableY + buildableHeight/2})">
+                    Side: ${zoningRules.sideSetback}'
+                </text>
+            </svg>
+            
+            <!-- Legend -->
+            <div class="plot-map-legend">
+                <div class="legend-item">
+                    <svg width="20" height="20">
+                        <rect x="0" y="0" width="20" height="20" fill="none" stroke="#2d3748" stroke-width="2"/>
+                    </svg>
+                    <span>Property Boundary</span>
+                </div>
+                <div class="legend-item">
+                    <svg width="20" height="20">
+                        <rect x="0" y="0" width="20" height="20" fill="none" stroke="#667eea" stroke-width="1" stroke-dasharray="3,2"/>
+                    </svg>
+                    <span>Setback Lines</span>
+                </div>
+                <div class="legend-item">
+                    <svg width="20" height="20">
+                        <rect x="0" y="0" width="20" height="20" fill="#667eea" fill-opacity="0.1"/>
+                    </svg>
+                    <span>Buildable Area</span>
+                </div>
+                ${result.squareFeet > 0 ? `
+                <div class="legend-item">
+                    <svg width="20" height="20">
+                        <rect x="0" y="0" width="20" height="20" fill="#e53e3e" fill-opacity="0.3" stroke="#e53e3e" stroke-width="1"/>
+                    </svg>
+                    <span>Current House</span>
+                </div>
+                ` : ''}
+                ${canSplit ? `
+                <div class="legend-item">
+                    <svg width="20" height="20">
+                        <line x1="0" y1="10" x2="20" y2="10" stroke="#f59e0b" stroke-width="2" stroke-dasharray="5,2"/>
+                    </svg>
+                    <span>Lot Split Line</span>
+                </div>
+                ` : ''}
+            </div>
+        </div>
+    `;
+    
+    return svg;
 } 

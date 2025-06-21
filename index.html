@@ -6,6 +6,8 @@
     <title>🏠 Austin Lot Analyzer - Mentor Program</title>
     <link rel="stylesheet" href="styles.css">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href='https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css' rel='stylesheet' />
+    <script src='https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js'></script>
 </head>
 <body>
     <header class="header">
@@ -52,6 +54,55 @@
                                 <p>See if the numbers work for your investment</p>
                             </div>
                         </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Single Address Lookup Section -->
+            <section class="address-lookup-section">
+                <div class="card">
+                    <h2><i class="fas fa-search"></i> Quick Property Analysis</h2>
+                    <p>Enter a single Austin address to analyze its lot split potential.</p>
+                    
+                    <div class="address-input-container">
+                        <input type="text" 
+                               id="addressInput" 
+                               class="address-input" 
+                               placeholder="e.g. 1234 Oak Street, Austin, TX 78704"
+                               onkeypress="if(event.key==='Enter') analyzeAddress()">
+                        <button class="btn-analyze-address" onclick="analyzeAddress()">
+                            <i class="fas fa-search"></i> Analyze
+                        </button>
+                    </div>
+                    
+                    <div id="addressError" class="error-message" style="display: none;"></div>
+                    <div id="addressLoading" class="loading-message" style="display: none;">
+                        <div class="loading-spinner"></div>
+                        <span>Fetching property data...</span>
+                    </div>
+                    
+                    <div class="api-status">
+                        <i class="fas fa-info-circle"></i>
+                        <span id="apiStatus">Using demo data. Connect APIs for real property data.</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Map Section -->
+            <section class="map-section" id="mapSection" style="display: none;">
+                <div class="card">
+                    <h2><i class="fas fa-map"></i> Property Map</h2>
+                    <div id="map" style="height: 500px; border-radius: 8px;"></div>
+                    <div class="map-controls">
+                        <button class="btn-secondary" onclick="toggleZoning()">
+                            <i class="fas fa-layer-group"></i> Toggle Zoning
+                        </button>
+                        <button class="btn-secondary" onclick="toggleUtilities()">
+                            <i class="fas fa-plug"></i> Toggle Utilities
+                        </button>
+                        <button class="btn-secondary" onclick="toggleTrees()">
+                            <i class="fas fa-tree"></i> Toggle Trees
+                        </button>
                     </div>
                 </div>
             </section>

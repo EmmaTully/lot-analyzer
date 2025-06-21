@@ -47,4 +47,16 @@ pids
 
 # Temporary folders
 tmp/
-temp/ 
+temp/
+
+# Dependencies
+node_modules/
+
+# Local data files
+*.csv
+
+# OS files
+.DS_Store
+
+# Local environment
+.env 
